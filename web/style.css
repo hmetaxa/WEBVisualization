@@ -1,0 +1,181 @@
+body {
+    text-shadow: -1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white;
+}
+.loading {
+    font-size: 2em;
+}
+.link {
+    stroke-width: 2px;
+
+}
+.nodetext {
+    pointer-events: none;
+    font: 16px sans-serif;
+    stroke: #fff;
+    stroke-width: .5px;
+}
+.type0 {
+    stroke: #6d856e;
+    fill:#6d856e;
+}
+/*.type0.circle {
+    fill-opacity: .5;
+}*/
+.type0.nodetext {
+    stroke: inherit;
+    fill:#6d856e;
+}
+
+.type1 {
+    stroke: #6d856e;
+    fill:#0868AC;
+}
+/*.type1.circle {
+    fill-opacity: .5;
+}*/
+.type1.nodetext {
+    stroke: inherit;
+    fill:#2B8CBE;
+}
+.type2 {
+    stroke:#5e735f;
+    fill:#ddd;
+}
+.type2.nodetext {
+    fill:#aaa;
+    stroke: inherit;
+}
+.type2.link {
+    stroke: #7BCCC4;
+    stroke-dasharray: 1, 1;
+}
+.type2.circle {
+    fill-opacity: .5;
+}
+.type3 {
+    stroke:#0868AC;
+    fill:#74C476;
+}
+.type3.nodetext {
+    stroke: inherit;
+}
+.type3.link {
+    stroke: #BAE4BC;
+}
+.type3.circle {
+    fill-opacity: .5;
+}
+
+.type4{
+    stroke: #80CDC1;
+    fill:#80CDC1;
+}
+.type5{
+    stroke: #C7EAE5;
+    fill:#C7EAE5;
+}
+.type6{
+    stroke: #F5F5F5;
+    fill:#F5F5F5;
+}
+.type7{
+    stroke: #F6E8C3;
+    fill:#F6E8C3;
+}
+.type8{
+    stroke: #DFC27D;
+    fill:#DFC27D;
+}
+.type9{
+    stroke: #BF812D;
+    fill:#BF812D;
+}
+.type10{
+    stroke: #8C510A;
+    fill:#8C510A;
+}
+.type11{
+    stroke: #543005;
+    fill:#543005;
+}
+.type12{
+    stroke: #1A1A1A;
+    fill:#1A1A1A;
+}
+.type13{
+    stroke: #4D4D4D;
+    fill:#4D4D4D;
+}
+.type14{
+    stroke: #878787;
+    fill:#878787;
+}
+.type15{
+    stroke: #BABABA;
+    fill:#BABABA;
+}
+.type16{
+    stroke: #FDDBC7;
+    fill:#FDDBC7;
+}
+.type17{
+    stroke: #F4A582;
+    fill:#F4A582;
+}
+.type18{
+    stroke: #D6604D;
+    fill:#D6604D;
+}
+.type19{
+    stroke: #B2182B;
+    fill:#B2182B;
+}
+.type20{
+    stroke: #67001F;
+    fill:#67001F;
+}
+.type21{
+    stroke: #40004B;
+    fill:#40004B;
+}
+
+/*
+.type1 {
+stroke: #6d856e;
+fill:#0868AC;
+}
+.type1.circle {
+fill-opacity: .5;
+}
+.type1.nodetext {
+stroke: inherit;
+fill:#2B8CBE;
+}
+.type2 {
+stroke:#5e735f;
+fill:#ddd;
+}
+.type2.nodetext {
+fill:#aaa;
+stroke: inherit;
+}
+.type2.link {
+stroke: #7BCCC4;
+stroke-dasharray: 1, 1;
+}
+.type2.circle {
+fill-opacity: .5;
+}
+.type3 {
+stroke:#0868AC;
+fill:#74C476;
+}
+.type3.nodetext {
+stroke: inherit;
+}
+.type3.link {
+stroke: #BAE4BC;
+}
+.type3.circle {
+fill-opacity: .5;
+}*/

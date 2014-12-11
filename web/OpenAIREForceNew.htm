@@ -1,0 +1,2200 @@
+﻿<html>
+	<head>
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<!-- Bootstrap -->
+
+	<!-- // <script type="text/javascript" src="popupbox/prototype.js"></script> -->
+	<!-- // <script type="text/javascript" src="popupbox/scriptaculous-js/src/scriptaculous.js?load=builder,effects"></script> -->
+	<!-- // <script type="text/javascript" src="popupbox/modalbox-master/modalbox.js"></script> -->
+
+
+	 <script src="http://d3js.org/d3.v3.min.js"></script>
+	<script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+	<script src="http://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+
+	<link rel="stylesheet" href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
+	<link href="bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
+	<link href="bootstrap/css/bootstrap-responsive.css" rel="stylesheet">
+
+<!--    <script src="./d3/d3.js"></script>
+	<link rel="stylesheet" href="./jQuery/ui/themes/smoothness/jquery-ui.css" />
+	<script src="./jQuery/ui/jquery-ui.js"></script>
+	<script src="./jQuery/jquery-2.1.0.js"></script>
+	 -->
+
+		<!--script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.8/jquery.min.js"></script-->
+	<script src="bootstrap/js/bootstrap.min.js"></script>
+<!--	<script src="./fullscreen.js"></script>
+-->
+
+	<link rel="stylesheet" type="text/css" href="style2.css" />
+<!--	mellontika na to alloaksw kai na to balw mes-->
+	<link rel="stylesheet" href="popupbox/modalbox-master/modalbox.css" type="text/css" media="screen" />
+
+
+	<script type='text/javascript'>//<![CDATA[ 
+	window.focus();
+	$(document).ready(function() {
+
+	/* globals */
+		var style,
+			fade_out = 0.1,
+			strong = 1,
+			normal = 0.8,
+			svgimgIN,
+			svgimgOUT,
+			prev_w,
+			diff,
+			w = $(window).width()/2,//800,
+			h = $(window).width()/2,//800,
+			radius = d3.scale.linear().domain([0, 978000]).range(["2", "30"]),
+			loading,
+			json,
+			linkLines,
+			linkedByIndex = {},
+			nodeCircles,
+			text,
+			labels = [],
+			links = [],						// includes all the links among the nodes 
+			nodes = [],						// includes all the nodes
+			selectedLabelIndex = null,
+			scaleFactor = 1,
+			translation = [0,0],
+			vis,
+			xScale,
+			yScale,
+			legend,
+			mytext,
+			grantslist,
+			explist,
+			focused,
+			grants,
+			topics,
+			experiments,
+			legend_data = [],
+			max_proj = 0,
+	// NMP +
+			nodeConnections = [],
+			maxNodeConnections = 0,
+			nodesInGroup = [],
+			labeled = [],
+			labelIsOnGraph = {},
+			topicWords = [],
+			svgSortedTopicWords = [],
+			discriminativeTopics = [],
+	/* stores all the labels in a map of keys=nodes, values=labels of node*/
+// possibly to be appended in future with more labels ue to zooming
+			nodeLabels = {},
+			previous_scale = 1,
+			zoom_type = 1,
+			drag,
+			zoomer,
+			initialized,
+			force,
+			myresponse,
+			hull,
+			fontsize,
+			fontcolor,
+  			svgElement = document.getElementById("graph"),
+			k,n,
+			wordsMapCounts = {},
+			topicsMap = {},
+			discriminativeTopic = {},
+			discriminativeTopicWeight = {},
+			discriminativeWord = {},
+			discriminativeWordCounts = {},
+			topicsGroupPerNode,
+			neighborNode,
+			neighborTopicsGroupPerNode,
+			neighborLen,
+			len,
+			topicPerTopicsGroup,
+			weightPerTopicsGroup,
+			timesOfWordApperaranceInGroup,
+			i,j,nl,nw,
+			neigborTopicWords = {},
+			topicWord,				//shows the best topic word for each topic 
+			mywords,
+			wlen,
+			maxWordCounts,
+			neighborLength,
+			label = {},
+			groupedNodes = [];
+
+//hull = vis.append("path")
+ //   .attr("class", "hull");
+
+ 	/* window resizing */
+ 		// console.log("window width = "+$(window).width())
+ 		// console.log("graph width = "+w)
+
+		$(window).on('resize',function (e) {
+			// console.log("new window width is "+w);
+			prev_w = w;
+			w = $(window).width()/2,
+			h = $(window).width()/2,
+			// console.log("new graph width is "+w);
+			// console.log("previous graph width is "+prev_w);
+
+			diff=w-prev_w;
+
+			svgElement.style["width"]= w;
+			svgElement.style["height"] = h;
+
+		/* new scale domains */
+/*			xScale = d3.scale.linear()
+						.domain([0,prev_w])
+						.range([0,w]);
+			yScale = d3.scale.linear()
+						.domain([0,prev_w])
+						.range([0,h]);
+*/	
+			console.log("w/prev_w="+w/prev_w);
+			vis.attr("transform", "scale(" + w/prev_w + ")");
+			prev_w = w;
+		});
+
+
+		style = document.createElement('style');
+		style.type = 'text/css';
+		document.getElementsByTagName('head')[0].appendChild(style);
+
+	/* event handlers */
+		$(".topic").on("click",function(){
+			//alert("clicked keyword "+$(this).html());
+			alert("clicked");
+
+		});
+
+		vis = d3.select("#graph")
+			.style("width", w)
+			.style("height", h)
+			.style("border-style","solid")
+			.style("cursor","pointer")
+			.style("border-color","snow");
+			//.style("float","left");
+
+// gia to convex hull
+//vis.append("path")
+//      .style("fill", "#ccf")
+//      .style("stroke", "#ccf")
+//      .style("stroke-width", 20);
+
+
+	/*** Create scales to handle zoom coordinates ***/
+		xScale = d3.scale.linear()
+						.domain([0,w]);
+		yScale = d3.scale.linear()
+						.domain([0,h]);
+	   /* ranges will be set later based on the size of the SVG */
+
+
+
+		legend = d3.select("#legend");
+		mytext = d3.select("#mytext");
+		grantslist = d3.select("#grants");
+		explist = d3.select("#experiments");
+
+		focused = false;
+
+
+
+/* NMP drag movement */
+	/*** Configure drag behaviour ***/
+/*		drag = d3.behavior.drag()
+				.origin(function(d) { return d; }) //center of circle
+				.on("dragstart", dragstarted)
+				.on("drag", dragged)
+				.on("dragend", dragended);
+*/
+		zoomer = d3.behavior.zoom()
+				/* allow from an x0.8 to an x10 times zoom in or out */
+					.scaleExtent([0.8,10])
+					.on("zoomstart", zoomstart)
+					.on("zoom", zoom)
+					.on("zoomend", zoomend);
+
+	/* semantic zooming and panning */
+	/* https://github.com/mbostock/d3/wiki/Zoom-Behavior */
+		vis.call(zoomer);
+
+
+		document.documentElement.addEventListener('mozfullscreenerror', errorHandler, false);
+
+	/* for all the page keydown event handler */
+		document.addEventListener('keydown', function(e) {
+			if (e.keyCode == 13 ){//|| e.keyCode == 71) { //   70 for button F
+				//toggleFullScreen(); // uncomment to fullscreen all page
+				svgfullscreen();
+				console.log("enter")
+					/* move back to normal */
+			}
+			if (e.keyCode == 27){		// esc button
+				console.log("esc")
+}
+		}, false);
+
+		document.addEventListener('keyup', function(e) {
+			if (e.keyCode == 27){		// esc button
+				console.log("esc")
+			}
+		}, false);
+
+	/* moveToFront function to handle the svg */ 
+		d3.selection.prototype.moveToFront = function() {
+			return this.each(function(){
+				this.parentNode.appendChild(this);
+			});
+		};
+
+	/* catch switching in and out full screen */
+		var isSvgFullscreen = false;
+
+		$(window).on('webkitfullscreenchange mozfullscreenchange fullscreenchange', function (e) {
+
+		       if (!isSvgFullscreen) {
+		            // you have just ENTERED full screen video
+				/* move svg to center */
+				 	vis.attr("transform","translate(" + w/2 + ")");
+					isSvgFullscreen = true;
+		 			svgimgIN.setAttributeNS(null, 'visibility', 'hidden');
+					svgimgOUT.setAttributeNS(null, 'visibility', 'visible');
+				 	console.log("fullscreen");
+		       } else {
+		            // you have just EXITED full screen video
+					isSvgFullscreen = false;
+				/* move svg to left */
+					vis.style("background-color","none");
+				/* move svg back to initial position */
+				 	vis.attr("transform","translate(" + 0 + ")");
+		 			svgimgIN.setAttributeNS(null, 'visibility', 'visible');
+					svgimgOUT.setAttributeNS(null, 'visibility', 'hidden');
+				 	console.log("!fullscreen");
+		       }
+		});
+
+
+		initialized = false;//
+
+		force = self.force = d3.layout.force()
+			.on("tick", initialTick)
+			.linkDistance(function(d) {
+				return Math.round(10*d.value);
+			})
+			.linkStrength(function(d) {
+				return d.value;
+			})
+			// .friction([1])
+			.friction(0.90) //slow down by 10% each tick
+//			.charge(-350) // according to http://jsfiddle.net/cSn6w/8/
+//			.gravity(2)	//changed with the charge above
+//			.charge(-100*w/800) // according to http://jsfiddle.net/cSn6w/8/
+//			.gravity(1)
+			.charge(-350*w/800) // according to http://jsfiddle.net/cSn6w/8/
+			.gravity(2)
+			.size([w, h]);
+
+
+    d3.json("http://localhost:8080/OpenAireWeb/webresources/entities.grantssimilarity/0.7/150T_0IT_950IIT_50I_100B_M_4_Grants_None",
+                        function(response) {
+                            
+                       
+			// console.log(response);		// prints the returned node results 
+			legend_data = [];
+			max_proj = 0;
+			var type_hash = [];
+			var node_hash = [];
+			var nodeCnt = 0;
+			//links = d3.range(1000).map(Object);
+			for (var j = 0; j < response.length; j++) {
+				if (typeof node_hash[response[j].grantId1]==="undefined"){
+					var nodetype;
+					var nodeindex = type_hash.indexOf(response[j].f1)
+					if(nodeindex != -1){
+						nodetype = nodeindex;
+						legend_data[nodeindex].pr++;
+						//legend_data[nodeindex].pubs += response[j].P1;
+					}
+					else{
+						type_hash.push(response[j].f1);
+						nodetype = type_hash.length;
+						legend_data[type_hash.length-1] = new Object();
+						legend_data[type_hash.length-1].name = response[j].f1;
+						legend_data[type_hash.length-1].pr=1;
+						//legend_data[type_hash.length-1].pubs = response[j].P1;
+
+						var clr = get_random_colors();
+
+						style.innerHTML += "."+response[j].f1+"{stroke:"+clr[1]+"; fill:"+clr[0]+"; background-color:"+clr[0]+"; color:"+clr[0]+";} ";
+					}
+
+					nodes[nodeCnt] = {index: nodeCnt, id: response[j].grantId1, name: response[j].acr1, slug: "http://www.md-paedigree.eu/", type: nodetype, value: response[j].p1, area: response[j].f1
+					}; //value # of publications
+					node_hash[response[j].grantId1] = nodeCnt;
+					nodeCnt++;
+				}
+
+				if ( typeof node_hash[response[j].grantId2]==="undefined"){
+					var nodetype;
+					var nodeindex = type_hash.indexOf(response[j].f2)
+					if(nodeindex != -1){
+						nodetype = nodeindex;
+						legend_data[nodeindex].pr++;
+						//legend_data[nodeindex].pubs += response[j].P2;
+					}
+					else{
+						type_hash.push(response[j].f2);
+						nodetype = type_hash.length;
+						legend_data[type_hash.length-1] = new Object();
+						legend_data[type_hash.length-1].name = response[j].f2;
+						legend_data[type_hash.length-1].pr=1;
+						//legend_data[type_hash.length-1].pubs = response[j].P2;
+
+						var clr = get_random_colors();
+
+						style.innerHTML += "."+response[j].f2+"{stroke:"+clr[1]+"; fill:"+clr[0]+"; background-color:"+clr[0]+"; color:"+clr[0]+";} ";
+					}
+					nodes[nodeCnt] = {index: nodeCnt, id: response[j].grantId2, name: response[j].acr2, slug: "http://www.humanbrainproject.eu/", type: nodetype, value: response[j].p2, area: response[j].f2
+					}; //value # of publications
+					node_hash[response[j].grantId2] = nodeCnt;
+					nodeCnt++;
+				}
+
+				links[j] = {source: node_hash[response[j].grantId1], target: node_hash[response[j].grantId2], value: response[j].similarity};
+			}
+//
+////NMP gia na exoume links kai apo to target sto source
+//			var j_new;
+//			for (var j = response.length; j < 2*response.length; j++) {
+//				j_new = j-response.length;
+//				links[j] = {source: node_hash[response[j_new].grantId2], target: node_hash[response[j_new].grantId1], value: response[j_new].similarity};
+//			}
+//
+//console.log("linkslength="+links.length)
+//
+//			var median = 0;
+//			for (j = 0; j < links.length ; j++) {
+//				median = (parseFloat(links[j].value) + parseFloat(j*median))/parseFloat(j+1);		
+//			}
+//			console.log("median link value="+median)
+//
+//
+//
+//
+//			for (var j = 0; j < response.length ; j++) {
+//				// console.log("links["+j+"]: source="+links[j].source+", target="+links[j].target+", value="+links[j].value);
+//			/* maybe we dont need the source to be counted */
+//			//console.log("value"+links[j].value)
+//				if(links[j].value>0.77){
+//					if(nodeConnections[links[j].source] == null)
+//						nodeConnections[links[j].source] = 0;
+//					if(nodeConnections[links[j].target] == null){
+//						nodeConnections[links[j].target] = 0;
+//					}
+//
+//				/*  */	
+//					if(nodesInGroup[links[j].source] == null)
+//						nodesInGroup[links[j].source] = [];
+//
+//					/* if j is not already in the array */
+//					if(include(nodesInGroup[links[j].source],j) != -1)
+//						nodesInGroup[links[j].source].push(j);
+//
+//					if(nodesInGroup[links[j].target] == null)
+//						nodesInGroup[links[j].target] = [];
+//
+//					/* if j is not already in the array */
+//					if(include(nodesInGroup[links[j].target],j) != -1)
+//						nodesInGroup[links[j].target].push(j);
+//
+//
+//		//			var temp = nodesInGroup[links[j].target];
+//		//			temp++;
+//		//			console.log("nodesInGroup[links["+(j+1)+"].target] = "+temp)
+//					nodeConnections[links[j].source] = nodeConnections[links[j].source] + 1; 	
+//					nodeConnections[links[j].target] = nodeConnections[links[j].target] + 1; 
+//				}
+//			}
+//			console.log("response.length="+response.length)
+//			// console.log("nodesInGroup="+nodesInGroup)
+//
+//
+////NMP + 
+//			for (var j = 0; j < nodeConnections.length ; j++) {
+//				if(maxNodeConnections < nodeConnections[j])
+//					maxNodeConnections = nodeConnections[j];
+//				// console.log("maxNodeConnections = "+ maxNodeConnections);
+//			}
+//			console.log("maxNodeConnections = "+ maxNodeConnections);
+//
+//
+//			for(var i=0;i<legend_data.length;i++){
+//				if(legend_data[i].pr > max_proj)
+//					max_proj = legend_data[i].pr;
+//			}
+//
+//
+//
+//
+//			legend_data.sort(compare);
+//			nodes.sort(compareGrants);
+
+			update();
+
+			var rows;
+			rows = legend.selectAll("tr")
+				.data(legend_data)
+				.enter()
+				.append("tr")
+				.style("height","10px")
+				.attr("class","legend_row")
+				.on("click",function(){
+					if($(this).hasClass("active_row")){
+						$(this).removeClass("active_row");
+						$(this).addClass("inactive");
+						if($(".active_row").length==0){
+							$(".inactive").each(function(){
+								$(this).removeClass("inactive");
+							});
+						}
+					}
+					else{
+						$(this).addClass("active_row");
+						$(this).removeClass("inactive");
+						if($(".active_row").length==1){
+							var cur = this;
+							$(".legend_row").each(function(){
+								if(this != cur)
+									$(this).addClass("inactive");
+							});
+						}
+					}
+
+					//find all types to show
+					var types = new Array();
+					var collection = null;
+					if($(".active_row").length == 0){
+						collection = $(".legend_row");
+					}
+					else
+						collection = $(".active_row");
+
+					collection.each(function(){
+						types.push($($(this).find("td").get(0)).find("div").html());
+					});
+
+					//showtypes
+					showtype(fade_out, types);
+				});
+				//.style("width","140px");
+
+			rows.append("td")
+				.append("div")
+				.style("width","60px")
+				.style("height","100%")
+				.text(function(d,i){return d.name;});
+
+			rows.append("td")
+				.append("div")
+				.style("width","80px")
+				.style("height","100%")
+				.attr("class","bar")
+				.append("div")
+				.style("height","10px")
+				.attr("class",function(d) {return d.name;})
+				.style("width",function(d){return Math.ceil(80*d.pr/max_proj);});
+				//.text(function(d,i){return d.name;});
+
+			rows.append("td")
+				.append("div")
+				.style("width","40px")
+				.style("height","100%")
+				.text(function(d){return numberWithCommas(d.pr);});
+
+			/* rows.append("td")
+				.append("div")
+				.style("width","40px")
+				.style("height","100%")
+				.text(function(d){return numberWithCommas(d.pubs);});*/
+
+			loadingText = vis.append("svg:text")
+							.style("font-size",w/20)
+							.attr("class", "loading")
+							.attr("x", (w / 2) - (w/7)) // pou einai to miso tou loading
+							.attr("y", h / 2)
+							.text("Loading");
+
+
+			explist.selectAll("option")
+				.data(experiments)
+				.enter()
+				.append("option")
+				.attr("value",function(d){return d;})
+// below code makes first experiment unselectable					
+				.attr("selected",function(d){if(d == "100T_0IT_600IIT_30I_100B_M_3_Grants_None") return "selected";})
+				.text(function(d){return d});
+
+			explist.on("change", function(){
+				var myval = $(this).find("option:selected").val();
+				$("#legend").empty();
+				$("svg").empty();
+/*nmp na dw poia xreiazontai edw*/					
+
+////////////////////////////////////////////////// //NMP epanaxrikopoiiseis  
+	$("svg:text").empty();
+	nodeConnections = [];//NMP +
+	maxNodeConnections = 0;//NMP +
+	labeled = [];
+	topicWords = [];		
+	topics = [];
+				ajaxCall(myval,"Graph");
+				ajaxCall(myval,"Topics");
+				ajaxCall(myval,"Experiments");
+				ajaxCall(myval,"Grants");
+			});
+
+			var temp = new Object();
+
+			temp.name = "all";
+
+			grantslist.selectAll("option")
+				.data([temp].concat(nodes))
+				.enter()
+				.append("option")
+				.attr("value",function(d){return d.name;})
+				.text(function(d){return d.name});
+
+			grantslist.on("change", function(){
+				var myval = $(this).find("option:selected").val();
+				if(myval == "all"){
+					/*var types = new Array();
+					$(".legend_box:checked").each(function(){
+						types.push($(this).attr("value"));
+					});
+					showtype(fade_out, types);
+								mytext.selectAll(".nodetext").remove();*/
+					reset();
+				}
+				else{
+					//get the node that has the name that was selected
+					for(var i=0;i<nodes.length;i++){
+						if(nodes[i].name == myval)
+							test(nodes[i],0.1);
+					}
+				}
+			});
+		}
+                )
+		//ajaxCall("100T_0IT_600IIT_30I_100B_M_3_Grants_None","Graph");
+		//ajaxCall("100T_0IT_600IIT_30I_100B_M_3_Grants_None","Topics");
+		//ajaxCall("100T_0IT_600IIT_30I_100B_M_3_Grants_None","Experiments");
+		//ajaxCall("100T_0IT_600IIT_30I_100B_M_3_Grants_None","Grants");
+		// ajaxCall("150T_350I_ALL_ALL","Grants");
+
+// Na tsekarw me to Enter ti tha anoigei. An  leitourgei swsta
+		$(document).keydown(function(e) {
+			//itan 13 
+			if (e.keyCode == 14 && selectedLabelIndex !== null) {
+				openLink()(labels[selectedLabelIndex]);
+				return false;			
+			}
+			else if (e.keyCode == 38 || e.keyCode == 40 && selectedLabelIndex !== null) {
+				if (e.keyCode == 38)
+					selectedLabelIndex--;
+				if (e.keyCode == 40)
+					selectedLabelIndex++;
+				if (selectedLabelIndex < 0)
+					selectedLabelIndex = labels.length - 1;
+				if (selectedLabelIndex > labels.length - 1)
+					selectedLabelIndex = 0;
+
+				vis.selectAll("text.nodetext").style("font-weight", function(d, i) {
+					return labels[selectedLabelIndex] == d ? "bold" : "normal"
+				});
+
+				vis.selectAll("circle.circle").style("stroke-width", function(d, i) {
+					return labels[selectedLabelIndex] == d ? "5" : "1"
+				});
+
+				return false;
+			}
+			else if (e.keyCode == 39) {
+				window['force']['charge'](window['force']['charge']() - 10)
+				force.start();
+			}
+			else if (e.keyCode == 37) {
+				window['force']['charge'](window['force']['charge']() + 10)
+				force.start();
+			}
+		});
+
+
+
+/***************************************************************************
+*******							FUNCTIONS							*******
+***************************************************************************/
+
+/**** DRAGGING FUNCTIONS ****/
+		function dragstarted(d){ 
+			d3.event.sourceEvent.stopPropagation();
+			d3.select(this).classed("dragging", true);
+			force.stop(); //stop ticks while dragging
+		}
+
+		function dragged(d){
+			if (d.fixed) return; //root is fixed
+
+			//get mouse coordinates relative to the visualization
+			//coordinate system:
+			var mouse = d3.mouse(vis.node());
+			d.x = (mouse[0] - translation[0])/scaleFactor; 
+			d.y = (mouse[1] - translation[1])/scaleFactor; 
+			browseTick();//re-position this node and any links
+		}
+
+		function dragended(d){
+			d3.select(this).classed("dragging", false);
+			force.resume();
+		}
+
+
+/**** ZOOOMING FUNCTIONS ****/
+	/* function used for starting border coloring*/
+		function zoomstart() {
+			// console.log("Start")
+			vis.style("animation-play-state","play")
+				/*the below is to work in Safari and Chrome:*/
+				.style("-webkit-animation-play-state","play");
+		}
+
+	/* function used for zooming and panning*/
+		function zoom() {
+			console.log("zoom", d3.event.translate, d3.event.scale);
+		// semantic zooming
+			scaleFactor = d3.event.scale;
+			translation = d3.event.translate;
+			if (previous_scale < d3.event.scale){
+			/* color change is animated infinite times of 3sec each one */
+				vis.style("animation","zoominmove 3s infinite")
+				.style("-webkit-animation","zoominmove 3s infinite");
+				zoom_type = 1;
+			}
+			else if (previous_scale == d3.event.scale){
+			/* color change is animated infinite times of 3sec each one */
+				vis.style("animation","dragmove 3s infinite")
+				.style("-webkit-animation","dragmove 3s infinite")
+				.style("cursor","move");						
+				zoom_type = 2;
+			}
+			else{
+			/* color change is animated infinite times of 3sec each one */
+				vis.style("animation","zoomoutmove 3s infinite")
+				.style("-webkit-animation","zoomoutmove 3s infinite");						
+		//		console.log("start out");
+				zoom_type = 3;
+			}
+			previous_scale = scaleFactor; 
+
+			browseTick(); // update positions
+
+
+		/* the below is for geometric zooming. Now we use semantic zooming so we don't need this. */
+			// vis.attr("transform","translate(" + d3.event.translate + ")" + " scale(" + d3.event.scale + ")");
+
+		}
+
+	/* function used for stopping border coloring*/
+		function zoomend() {
+			console.log("previous_scale="+previous_scale);
+			// console.log("end")
+			if (zoom_type == 1){
+				vis
+				/* continue with amimating the border for 2 times more*/
+					.style("animation","zoominmove 3s 2")
+					.style("-webkit-animation","zoominmove 3s 2");
+			}
+			else if (zoom_type == 2){
+				vis
+				/* continue with amimating the border for 2 times more*/
+					.style("animation","dragmove 3s 2")
+					.style("-webkit-animation","dragmove 3s 2")
+					.style("cursor","pointer");					
+			}
+			else{
+			vis
+				/* continue with amimating the border for 2 times more*/
+					.style("animation","zoomoutmove 3s 2")
+					.style("-webkit-animation","zoomoutmove 3s 2");
+			}
+			/* no need of these any more */	
+//				.style("animation-play-state","paused")
+//				.style("-webkit-animation-play-state","paused")
+//				.style("border-color","snow");
+				//.style("float","left");
+		}
+
+
+
+/**** FULLSCREEN AND RESIZING FUNCTIONS ****/
+		/* mozfullscreenerror event handler */
+		function errorHandler() {
+		   alert('mozfullscreenerror');
+		}
+
+	/* for all the page toggle full screen */
+		function toggleFullScreen() {
+			if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement) {  // current working methods
+				if (document.documentElement.requestFullscreen) {
+					document.documentElement.requestFullscreen();
+				}
+				else if (document.documentElement.mozRequestFullScreen) {
+					document.documentElement.mozRequestFullScreen();
+				}
+				else if (document.documentElement.webkitRequestFullscreen) {
+					document.documentElement.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+				}
+			}
+			else {
+				if (document.cancelFullScreen) {
+					document.cancelFullScreen();
+				}
+				else if (document.mozCancelFullScreen) {
+					document.mozCancelFullScreen();
+				}
+				else if (document.webkitCancelFullScreen) {
+					document.webkitCancelFullScreen();
+				}
+			}
+		}
+
+		function svgfullscreen()
+		{      		
+   			if (!svgElement.fullscreenElement && !svgElement.mozFullScreenElement && !svgElement.webkitFullscreenElement) {  // current working methods
+				if (svgElement.requestFullscreen) {
+					svgElement.requestFullscreen();
+				}
+				else if (svgElement.mozRequestFullScreen) {
+					svgElement.mozRequestFullScreen();
+				}
+				else if (svgElement.webkitRequestFullscreen) {
+					svgElement.documentElement.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+				}
+			}
+			else {
+				if (svgElement.cancelFullScreen) {
+					svgElement.cancelFullScreen();
+				}
+				else if (svgElement.mozCancelFullScreen) {
+					svgElement.mozCancelFullScreen();
+				}
+				else if (svgElement.webkitCancelFullScreen) {
+					svgElement.webkitCancelFullScreen();
+				}
+			}
+		}
+
+
+		function svgfullscreenExit()
+		{
+   			if (svgElement.fullscreenElement || svgElement.mozFullScreenElement || svgElement.webkitFullscreenElement) {  // current working methods
+				if (svgElement.requestFullscreen) {
+					svgElement.requestFullscreen();
+				}
+				else if (svgElement.mozRequestFullScreen) {
+					svgElement.mozRequestFullScreen();
+				}
+				else if (svgElement.webkitRequestFullscreen) {
+					svgElement.documentElement.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+				}
+			}
+			else {
+	  			if (document.exitFullscreen) {
+      				document.exitFullscreen();
+			    } else if (document.msExitFullscreen) {
+			      	document.msExitFullscreen();
+			    } else if (document.mozCancelFullScreen) {
+			      	document.mozCancelFullScreen();
+			    } else if (document.webkitExitFullscreen) {
+			      	document.webkitExitFullscreen();
+			    }
+			}
+		}
+/**** FADING AND COLORING FUNCTIONS ****/
+	/* refills the opacity of each color after fading */
+		function showtype(opacity, types){
+
+			nodeCircles.style("fill-opacity", function(o) {
+				if(types.indexOf(o.area) === -1)
+					return opacity;
+				else
+					return normal;
+			});
+
+			nodeLabels.style("fill-opacity", function(o) {
+				if(types.indexOf(o.area) === -1){
+						return opacity*3;
+				}
+				else{
+					return strong;
+				}
+			});
+
+			nodeLabels.style("stroke-opacity", function(o) {
+				if(types.indexOf(o.area) === -1){
+					return opacity*3;
+				}
+				else{
+					return normal;
+				}
+			});
+
+		/* links stay with opacity or not in hover according to below condition */
+			linkLines.style("stroke-opacity", function(o) {
+				return types.indexOf(o.source.area) != -1 || types.indexOf(o.target.area) != -1 ? normal/2 : opacity;
+			});
+		}
+
+	/* fade */
+		function fade(opacity, showText) {
+			return function(d, i) {
+				if($(this).css("fill-opacity") < normal)
+					return false;
+				labels = [];
+				var selectedLabelData = null;
+
+			/* text opacity for all... goes first. later some will have normal opacity*/ 
+				vis.selectAll(".labels")
+					.style("fill-opacity", opacity*3)
+					.style("stroke-opacity",opacity*3);
+
+				nodeCircles.style("fill-opacity", function(o) {
+					var isNodeConnectedBool = isNodeConnected(d, o);
+					var thisOpacity = isNodeConnectedBool ? normal : opacity;
+					if (!isNodeConnectedBool) {
+						this.setAttribute('style', "stroke-opacity:" + opacity + ";fill-opacity:" + opacity + ";");
+					}
+					else {
+						if (o == d){							
+							selectedLabelData = o;
+						}
+						else{
+							labels.push(o);							
+						}
+					}
+					if(o == d)
+						return strong;
+					return thisOpacity;
+				});
+
+
+				nodeLabels.style("fill-opacity", function(o) {
+					var isNodeConnectedBool = isNodeConnected(d, o);
+					var thisOpacity = isNodeConnectedBool ? normal : opacity;
+					/*if !neighbor && !this node*/
+					if (!isNodeConnectedBool) {
+						this.setAttribute('style', "stroke-opacity:" + opacity*3 + ";fill-opacity:" + opacity*3 + ";");
+					}
+					else {
+						if (o == d){							
+							selectedLabelData = o;
+						}
+						else{
+							labels.push(o);							
+						}
+					}
+					/*if this node*/
+					if(o == d)
+						return strong;
+					/*if neighbor node*/
+					return thisOpacity;
+				});
+
+				nodeLabels.style("stroke-opacity", function(o) {
+					var isNodeConnectedBool = isNodeConnected(d, o);
+					var thisOpacity = isNodeConnectedBool ? normal : opacity;
+					/*if !neighbor && !this node*/
+					if (!isNodeConnectedBool) {
+						this.setAttribute('style', "stroke-opacity:" + opacity*3 + ";fill-opacity:" + opacity*3 + ";");
+					}
+					else {
+						if (o == d){							
+							selectedLabelData = o;
+						}
+						else{
+							labels.push(o);							
+						}
+					}
+				/*if neighbor || this node*/
+					return thisOpacity;
+				});
+
+				linkLines.style("stroke-opacity", function(o) {
+					return o.source === d || o.target === d ? normal : opacity;
+				});
+
+				labels.sort(function(a, b) {
+					return b.value - a.value
+				})
+
+				selectedLabelIndex = 0; // labels.indexOf(selectedLabelData);
+
+				var temp = mytext.selectAll("div.nodetext").data([selectedLabelData].concat(labels)).enter().append("div").attr("class", function(o) {
+					if( d.index == o.index )
+						return "nodetext " + o.area + " active";
+					return "nodetext " + o.area;
+				})
+				.html(function(o) {	
+// NMP +
+					var topicsGroupPerNode,
+						len;
+
+				/* maybe use: tfidf algorithm to find discriminative topics and words */
+
+					var str = 'Project: ' + o.name + '</br> # Publications:' + o.value + "</br> Subdivision: " + o.area;
+					if(d == o){
+						topicsGroupPerNode = grants[o.id];
+						if(topics != null){
+							str += "<span style='font-size:small;z-index:500;'><br/></br> TOPICS:<br/>";
+							len = topicsGroupPerNode.length;
+							for(var i=0;i<len;i++){
+								var mywords = topics[topicsGroupPerNode[i].topic];
+								var wlen = mywords.length;
+
+								for(var j=0;j<wlen;j++){
+									str += "<span class='topic' style='opacity:" + mywords[j].counts/mywords[0].counts + ";'>" + mywords[j].item + "</span>";
+									if(j<wlen-1)
+										str += "&nbsp";
+								}
+								str += "<br/><br/>";
+							}
+						str += "<br/></br> SIMILAR TO:</span>";
+						}
+					}
+
+
+					/* move circle elements above all others within the same grouping */ 
+					vis.selectAll(".circle").moveToFront();
+
+					return str;
+				});
+				temp.on("mouseover",function(){alert("click");});
+
+				fontsize = (14*4/(1.3*previous_scale) >= 13) ? 14*4/(1.3*previous_scale) : 13;	// reduce label font by 5/(3*previous_scale)
+				vis.selectAll(".labels")
+					.style("font-size",fontsize+"px");	
+			}
+		}
+
+	/* test function is similar to fade function*/
+		function test(mynode, opacity){
+			var types = new Array();
+				/*$(".legend_box:checked").each(function(){
+					types.push($(this).attr("value"));
+				});*/
+			var collection = null;
+			if($(".active_row").length == 0){
+				collection = $(".legend_row");
+			}
+			else
+				collection = $(".active_row");
+
+			collection.each(function(){
+				types.push($($(this).find("td").get(0)).find("div").html());
+			});
+
+			showtype(fade_out, types);
+			mytext.selectAll(".nodetext").remove();
+
+			labels = [];
+			var selectedLabelData = null;
+
+
+			/* text opacity for all... goes first. later some will have normal opacity*/ 
+			vis.selectAll(".labels")
+				.style("fill-opacity", opacity*3)
+				.style("stroke-opacity",opacity*3);
+
+
+			nodeCircles.style("fill-opacity", function(o) {
+				var isNodeConnectedBool = isNodeConnected(mynode, o);
+				var thisOpacity = isNodeConnectedBool ? normal : opacity;
+				if (!isNodeConnectedBool) {
+					this.setAttribute('style', "stroke-opacity:" + opacity + ";fill-opacity:" + opacity + ";");
+				}
+				else {
+					if (o == mynode){
+						selectedLabelData = o;
+					}
+					else{
+						labels.push(o);
+					}
+				}
+				if(o == mynode)
+					return strong;
+				return thisOpacity;
+			});
+
+
+
+			nodeLabels.style("fill-opacity", function(o) {
+				var isNodeConnectedBool = isNodeConnected(mynode, o);
+				var thisOpacity = isNodeConnectedBool ? normal : opacity;
+				/*if !neighbor && !this node*/
+				if (!isNodeConnectedBool) {
+					this.setAttribute('style', "stroke-opacity:" + opacity*3 + ";fill-opacity:" + opacity*3 + ";");
+				}
+				else {
+					if (o == mynode){
+						selectedLabelData = o;
+					}
+					else{
+						labels.push(o);
+					}
+				}
+				/*if this node*/
+				if(o == mynode)
+					return strong;
+				/*if neighbor node*/
+				return thisOpacity;
+			});
+
+
+			nodeLabels.style("stroke-opacity", function(o) {
+				var isNodeConnectedBool = isNodeConnected(mynode, o);
+				var thisOpacity = isNodeConnectedBool ? normal : opacity;
+				/*if !neighbor && !this node*/
+				if (!isNodeConnectedBool) {
+					this.setAttribute('style', "stroke-opacity:" + opacity*3 + ";fill-opacity:" + opacity*3 + ";");
+				}
+				else {
+					if (o == mynode){
+						selectedLabelData = o;
+					}
+					else{
+						labels.push(o);
+					}
+				}
+				/*if neighbor || this node*/
+				return thisOpacity;
+			});
+
+
+			linkLines.style("stroke-opacity", function(o) {
+				return o.source === mynode || o.target === mynode ? normal : opacity;
+			});
+
+			labels.sort(function(a, b) {
+				return b.value - a.value
+			})
+
+			selectedLabelIndex = 0;
+
+			var temp = mytext.selectAll("div.nodetext")
+				.data([selectedLabelData].concat(labels))
+				.enter()
+				.append("div")
+				.attr("class", function(o) {
+					if( mynode.index == o.index )
+						return "nodetext " + o.area + " active";
+					return "nodetext " + o.area;
+				})
+				.html(function(o) {
+//NMP +
+					var topicsGroupPerNode,
+						len;
+
+				/* maybe use: tfidf algorithm to find discriminative topics and words */
+
+					var str = 'Project: ' + o.name + '</br> # Publications:' + o.value + "</br> Subdivision: " + o.area;
+					if(mynode == o){
+						topicsGroupPerNode = grants[o.id];
+						if(topics != null){
+//change to the below to seem like fading							
+							str += "<span style='font-size:small;z-index:500;'><br/></br> TOPICS:<br/>";
+//change to the below to seem like it was at first like dimitra designed it							
+//							str += "<div id='accordion'><h3>TOPICS:</h3><div>";
+							len = topicsGroupPerNode.length;
+							for(var i=0;i<len;i++){
+								var mywords = topics[topicsGroupPerNode[i].topic];
+								var wlen = mywords.length;
+
+								for(var j=0;j<wlen;j++){
+									str += "<span class='topic' style='opacity:" + mywords[j].counts/mywords[0].counts + ";'>" + mywords[j].item + "</span>";
+									if(j<wlen-1)
+										str += "&nbsp";
+								}
+								str += "<br/><br/>";
+							}
+
+						str += "<br/></br> SIMILAR TO:</span>";
+						}
+					}
+
+					/* move circle elements above all others within the same grouping */ 
+					vis.selectAll(".circle").moveToFront();
+
+					return str;
+				});
+
+
+			temp.on("click",function(){
+				alert("click");
+			});
+			$( "#accordion" ).accordion();
+			$(".topic").on("click",function(){
+				//alert("clicked keyword "+$(this).html());
+				alert("clicked");
+			});
+
+
+//			fontsize = (14*5/(1.5*previous_scale) >= 13) ? 14*5/(1.5*previous_scale) : 13;	// reduce label font by 5/(3*previous_scale)
+			fontsize = (14*4/(1.3*previous_scale) >= 13) ? 14*4/(1.3*previous_scale) : 13;	// reduce label font by 5/(3*previous_scale)
+			vis.selectAll(".labels")
+				.style("font-size",fontsize+"px");	
+		}
+
+
+		function get_random_colors() {
+			var letters = '0123456789ABCDEF'.split('');
+			var color1 = '#';
+			var color2 = '#';
+			for (var i = 0; i < 6; i++ ) {
+				color1 += letters[Math.round(Math.random() * 15)];
+			}
+			var col = new Array(
+				parseInt(color1.substring(0,2),16),
+				parseInt(color1.substring(2,5),16),
+				parseInt(color1.substring(5),16)
+			);
+
+			var darker = new Array();
+
+			darker[0] = col[0] >> 2;
+			darker[1] = col[1] >> 2;
+			darker[2] = col[2] >> 2;
+
+			color2 += darker[0].toString(16);
+			color2 += darker[1].toString(16);
+			color2 += darker[2].toString(16);
+
+			return new Array(color1,color2);
+		}
+
+
+		//NMP+
+	/* function returns 1 if an array contains an object or 0 if not */	
+		function include(arr,obj) {
+			return (arr.indexOf(obj) != -1);
+		}
+
+
+		function compare(a,b) {
+			if (a.pr < b.pr)
+				return 1;
+			if (a.pr > b.pr)
+				return -1;
+			return 0;
+		}
+
+
+
+		function compareGrants(a,b) {
+			if (a.name > b.name)
+				return 1;
+			if (a.name < b.name)
+				return -1;
+			return 0;
+		}
+
+	/* reset like normalizeNodesAndRemoveLabels */
+		function reset(){
+			var types = new Array();
+				/*$(".legend_box:checked").each(function(){
+					types.push($(this).attr("value"));
+				});*/
+			var collection = null;
+			if($(".active_row").length == 0){
+				collection = $(".legend_row");
+			}
+			else
+				collection = $(".active_row");
+
+			collection.each(function(){
+				types.push($($(this).find("td").get(0)).find("div").html());
+			});
+			showtype(fade_out, types);
+			mytext.selectAll(".nodetext").remove();
+
+		}
+
+	/* collide */
+		function collide(nodeCircles) {
+			var r = nodeCircles.radius + 50,
+				nx1 = nodeCircles.x - r,
+				nx2 = nodeCircles.x + r,
+				ny1 = nodeCircles.y - r,
+				ny2 = nodeCircles.y + r;
+
+			return function(quad, x1, y1, x2, y2) {
+				if (quad.point && (quad.point !== nodeCircles)) {
+					var x = nodeCircles.x - quad.point.x,
+						y = nodeCircles.y - quad.point.y,
+						l = Math.sqrt(x * x + y * y),
+						r = nodeCircles.radius + quad.point.radius;
+
+					if (l < r) {
+						l = (l - r) / l * .5;
+						nodeCircles.x -= x *= l;
+						nodeCircles.y -= y *= l;
+						quad.point.x += x;
+						quad.point.y += y;
+					}
+				}
+				return x1 > nx2
+					|| x2 < nx1
+					|| y1 > ny2
+					|| y2 < ny1;
+			};
+		}
+
+	/* normalizeNodesAndRemoveLabels */
+		function normalizeNodesAndRemoveLabels() {
+			return function(d, i) {
+				var types = new Array();
+				/*$(".legend_box:checked").each(function(){
+					types.push($(this).attr("value"));
+				});*/
+				var collection = null;
+				if($(".active_row").length == 0){
+					collection = $(".legend_row");
+				}
+				else
+					collection = $(".active_row");
+				collection.each(function(){
+					types.push($($(this).find("td").get(0)).find("div").html());
+				});
+				showtype(fade_out, types);
+				mytext.selectAll(".nodetext").remove();
+			}
+		}
+
+
+		function isNodeConnected(a, b) {
+/*			if(include(nodesInGroup[a.source],b.target) != -1)
+				return 1;
+			else if(include(nodesInGroup[b.source],a.target) != -1)
+				return 1;
+			else if(a.index == b.index)
+				return 1;
+			else
+				return 0;
+*/			return linkedByIndex[a.index + "," + b.index] || linkedByIndex[b.index + "," + a.index] || a.index == b.index;
+		}
+
+
+		function openLink() {
+			return function(d) {
+				var url = d.slug;
+				window.open(url)
+			}
+		}
+
+
+		function numberWithCommas(x) {
+			return x.toString().replace(/\B(?=(?:\d{3})+(?!\d))/g, ",");
+		}
+
+
+/**** TICK FUNCTIONS ****/
+		function browseTick() {
+			k = 0,
+			n = nodes.length;
+
+			nodeCircles
+			/* transition animates the elements selected. In browsing we don't need it */
+				// .transition()
+				// .duration(1000)
+				.attr("cx", function(d) {
+					/* http://stackoverflow.com/questions/21344340/sematic-zooming-of-force-directed-graph-in-d3 */
+					return translation[0] + scaleFactor*d.x;
+				})
+				.attr("cy", function(d) {
+					return translation[1] + scaleFactor*d.y;
+				})
+			linkLines
+			/* transition animates the elements selected. In browsing we don't need it */
+				// .transition()
+				// .duration(1000)
+				.attr("x1", function(d) {
+					return translation[0] + scaleFactor*d.source.x;
+				})
+				.attr("y1", function(d) {
+					return translation[1] + scaleFactor*d.source.y;
+				})
+				.attr("x2", function(d) {
+					return translation[0] + scaleFactor*d.target.x;
+				})
+				.attr("y2", function(d) {
+					return translation[1] + scaleFactor*d.target.y;
+				})
+
+
+			nodeLabels
+				.attr("x",function (d){
+					return (translation[0] + scaleFactor*d.x+7)
+				})
+				.attr("y",function (d){
+					return (translation[1] + scaleFactor*d.y-7)
+				})
+				.text(function(d) { 
+					if (labeled[d.index]){
+						// console.log("scale Factor"+previous_scale)
+						if((links[d.index].value>0.94/(1+(0.03*previous_scale))) && (nodeConnections[d.index] > 4*maxNodeConnections/(6+previous_scale))){
+//						if(nodeConnections[d.index] > 7*maxNodeConnections/(7+previous_scale)){
+							return label[d.index];
+						}
+						else{
+							return "";
+						}
+					}
+			});							
+
+			fontsize = (14*4/(1.3*previous_scale) >= 13) ? 14*4/(1.3*previous_scale) : 13;	// reduce label font by 5/(3*previous_scale)
+//			fontsize = (14*5/(1.5*previous_scale) >= 13) ? 14*5/(1.5*previous_scale) : 13;	// reduce label font by 5/(3*previous_scale)
+			vis.selectAll(".labels")
+				.style("font-size",fontsize+"px");					
+
+		/* move circle elements above all others within the same grouping */ 
+			vis.selectAll(".circle").moveToFront();
+		}
+
+
+		function includeIcons() {
+		/* Create zoom icon on the top right corner of svg after loading graph */
+			svgimgIN = document.createElementNS('http://www.w3.org/2000/svg','image');
+			svgimgIN.setAttributeNS(null,'height','22');
+			svgimgIN.setAttributeNS(null,'width','22');
+			svgimgIN.setAttributeNS('http://www.w3.org/1999/xlink','href', 'http://astero.di.uoa.gr/graphstemp/fullscreen_alt.svg');
+			svgimgIN.setAttributeNS(null,'x',$('svg').width()-27);
+			svgimgIN.setAttributeNS(null,'y','5');
+			svgimgIN.setAttributeNS(null, 'visibility', 'visible');
+			$('svg').append(svgimgIN)
+				.on("mouseover", svgimgIN.setAttributeNS(null,'fill-opacity',0.5))
+				.on("mouseout", svgimgIN.setAttributeNS(null,'fill-opacity',1));
+			svgimgIN
+				.addEventListener("click", svgfullscreen);
+
+			svgimgOUT = document.createElementNS('http://www.w3.org/2000/svg','image')
+			svgimgOUT.setAttributeNS(null,'height','30');
+			svgimgOUT.setAttributeNS(null,'width','30');
+			svgimgOUT.setAttributeNS('http://www.w3.org/1999/xlink','href', 'http://astero.di.uoa.gr/graphstemp/fullscreen_exit_alt.svg');
+			svgimgOUT.setAttributeNS(null,'x',$('body').width()-w/2-20);
+			svgimgOUT.setAttributeNS(null,'y','50');
+			svgimgOUT.setAttributeNS(null, 'visibility', 'hidden');
+			$('svg').append(svgimgOUT)
+				.on("mouseover", svgimgOUT.setAttributeNS(null,'fill-opacity',0.5))
+				.on("mouseout", svgimgOUT.setAttributeNS(null,'fill-opacity',0.5));
+			svgimgOUT
+				.addEventListener("click",svgfullscreenExit);
+		}
+
+
+		function findTopicLabels(){
+				console.log("2");
+
+//NMP 
+
+	/* The following code is executed only when the ajaxCall has loaded all the Topics */
+		// $( document ).ajaxComplete(function() { 	// if "ajaxComplete" the code is executed every time one of the ajaxCalls is completed 
+		// $(document).bind("topicsDone",function() {	// if "bind" the code is executed every time the "topicsDone" is triggered. In this code it is triggered when the ajaxCall has loaded all the Topics 
+
+
+//NMP +
+//		links[j] = {source: node_hash[d.id], target: node_hash[response[j].GrantId2], value: response[j].Similarity};
+//		nodes[nodeCnt] = {index: nodeCnt, id: d.id, name: response[j].acr1, slug: "http://www.md-paedigree.eu/", type: nodetype, value: response[j].P1, area: response[j].f1
+//		nodes[nodeCnt] = {index: nodeCnt, id: response[j].GrantId2, name: response[j].acr2, slug: "http://www.humanbrainproject.eu/", type: nodetype, value: response[j].P2, area: response[j].f2
+//		node_hash[response[j].GrantId1] = nodeCnt;
+//		console.log("links["+j+"]: source="+links[j].source+", target="+links[j].target+", value="+links[j].value);
+//		if(nodeConnections[links[j].source] == null)
+//			nodeConnections[links[j].source] = 0;
+// d ==== nodes 
+// NMP + 
+			k = 0,
+			n = nodes.length,
+			wordsMapCounts = {},
+			topicsMap = {},
+			discriminativeTopic = {},
+			discriminativeTopicWeight = {},
+			discriminativeWord = {},
+			discriminativeWordCounts = {},
+			neigborTopicWords = {},
+			topicWord = "";				//shows the best topic word for each topic 
+
+
+		/* maybe use: tfidf algorithm to find discriminative topics and words */
+
+			while (++k < n) {
+
+			/* temporarily we find if a node has high-connectivity (3/7 at least of the maximum node's connectivity) */							
+//				if(links[nodes[k].index].value>0.75){
+
+				if((nodeConnections[nodes[k].index] > (1/6)*maxNodeConnections) && (links[nodes[k].index].value>0.73)){		//afou maxNodeConnections=24 tha broume ta topics se omades toulaxiston twn 4 kai pou einai toulaxiston se kontini apostasi metaksu tous 
+					topicsGroupPerNode = grants[nodes[k].id];
+					// console.log("grants["+nodes[k].id+"].topic="+grants[nodes[k].id][0].topic+" grants["+nodes[k].id+"].weight="+grants[nodes[k].id][1].weight);
+				/* in order to find the most discriminative topic we find all the topics in a group with high-connectivity and we find the topic with the max weight 
+					if all the topics are unique. If they are not then in the topics that occur in the group more than one times we multiply the weight of the topic 
+					with the number occured in group and find the topic with the max weight again
+				*/
+				/* algorithm steps */
+				/* Step 1: get the all the topics of the node */
+					len = topicsGroupPerNode.length;
+
+				/* Step 2: temporarily set the most discriminative topic as the first and in the end the true one will occur with the algorithm */
+					discriminativeTopic[nodes[k].index] = topicsGroupPerNode[0].topic;
+					discriminativeTopicWeight[nodes[k].index] = topicsGroupPerNode[0].weight;
+					// console.log("IN k ="+k+": initial discriminativeTopic = "+discriminativeTopic[nodes[k].index]+" with weight = "+discriminativeTopicWeight[nodes[k].index])
+
+					for(i=0;i<len;i++){
+						topicPerTopicsGroup = topicsGroupPerNode[i].topic;
+						weightPerTopicsGroup = topicsGroupPerNode[i].weight;
+						// console.log("temp Topic = "+topicPerTopicsGroup+" with weight = "+weightPerTopicsGroup)
+				/* Step 3: foreach of the node's topics get their 'discriminativity'-weight and how many times they reoccur in the other nodes of the node's group of nodes */
+						// the below must each time be set to 1 not only at the beginning 
+						// if (topicsMap[topicPerTopicsGroup] == null)
+						topicsMap[topicPerTopicsGroup] = 1;
+						// console.log("topicsMap[topicPerTopicsGroup] = "+topicsMap[topicPerTopicsGroup])
+						// console.log("nodesInGroup["+nodes[k].index+"].length = "+nodesInGroup[nodes[k].index].length)
+						for (j=0; j<nodesInGroup[nodes[k].index].length ; j++) {
+							neighborNode = nodesInGroup[nodes[k].index][j];
+							// console.log("length="+nodesInGroup[nodes[k].index].length)
+							if (nodes[neighborNode] != null){
+								neighborTopicsGroupPerNode = grants[nodes[neighborNode].id];
+								neighborLen = neighborTopicsGroupPerNode.length;
+								// console.log("neighbor node["+j+"] = "+nodesInGroup[nodes[k].index][j])
+								for(nl=0;nl<neighborLen;nl++){
+									// console.log("neighbor node's Topic["+nl+"] = "+neighborTopicsGroupPerNode[nl].topic)
+									if(topicPerTopicsGroup == neighborTopicsGroupPerNode[nl].topic){
+										// console.log("++1 tempTopic ... topicsMap["+topicPerTopicsGroup+"] += 1 = "+topicsMap[topicPerTopicsGroup]);
+										topicsMap[topicPerTopicsGroup] += 1;
+									}
+								}										
+							}
+						}
+				/* Step 4: After finishing the parsing of all the other nodes in group we multiply the topics' weights with the times they appeared in all groups' nodes and we hold the most discriminative*/
+						if (discriminativeTopicWeight[nodes[k].index] < weightPerTopicsGroup*topicsMap[topicPerTopicsGroup]){
+							// console.log(discriminativeTopicWeight+" < "+weightPerTopicsGroup*topicsMap[topicPerTopicsGroup]);
+							discriminativeTopicWeight[nodes[k].index] = weightPerTopicsGroup*topicsMap[topicPerTopicsGroup];
+							discriminativeTopic[nodes[k].index] = topicPerTopicsGroup;
+						}
+					}
+				/*Step 5: print the final discriminative topic*/
+				// console.log("IN k ="+k+" the disciminative topic is "+discriminativeTopic[nodes[k].index]);
+				}
+			}
+			// edw twra na brw to pio discriminative topic me to opoio tha sunexisw st epomeno bima 
+
+			k = 0; 
+			while (++k < n) {
+				topicWord = "";				//shows the best topic word for each topic 
+				timesOfWordApperaranceInGroup = 1;
+				neigborTopicWords = {};
+
+			/* algorithm steps */
+			/* Step 1: if the node has a lot of connection as found from the previous loop, then a discriminative topic exists and so we take it */
+				if (discriminativeTopic[nodes[k].index] != null){
+					mywords = topics[discriminativeTopic[nodes[k].index]];
+					wlen = mywords.length;
+					maxWordCounts = 0;
+					topicWord = "";
+
+					neighborNode;
+
+			/* Step 2: temporarily set the most discriminative word as the first word in topic and in the end the true one will occur with the algorithm */
+					discriminativeWord[nodes[k].index] = mywords[0].item;
+					discriminativeWordCounts[nodes[k].index] = mywords[0].counts;
+					// console.log("IN k="+k+" FIRST discriminativeWord="+discriminativeWord[nodes[k].index]+" with counts = "+discriminativeWordCounts[nodes[k].index]);
+					neighborLength = nodesInGroup[nodes[k].index].length;
+					// console.log("nodesInGroup[k].length ="+neighborLength);
+
+				/* initialization for each nodes' discriminative topic's words */
+					for(j=0;j<wlen;j++){
+						// console.log("nodeConnections["+nodes[k].index+"] = "+nodeConnections[nodes[k].index]+" > "+4*maxNodeConnections/7);
+						wordsMapCounts[mywords[j].item] = parseInt(mywords[j].counts);
+					}
+
+			/* Step 3: We collect all the times all the words occured in the discriminative topic and all the groups' other nodes' discriminative topics and simultaneously make a total occurance of this word in a map, which at follow we are going to sort and keep the most discriminative word */
+					for (i=0; i<neighborLength ; i++) {
+						/* if the neighbor node has a discriminative topic */
+						neighborNode = nodesInGroup[nodes[k].index][i];
+						if (nodes[neighborNode] != null){
+							if (discriminativeTopic[nodes[neighborNode].index] != null){
+								neigborTopicWords = topics[discriminativeTopic[nodes[neighborNode].index]];
+								// console.log("IN neighborNode="+neighborNode+" discriminativeTopic="+discriminativeTopic[nodes[neighborNode].index]);
+								//console.log("discriminativeTopic[nodes[k].index]="+discriminativeTopic[nodes[k].index]);
+
+				/* Step 4: foreach of the words in this topic we apply the same algorithm as in discriminative topics by taking the counts each word appeared among the discriminative topics of the connected group of topics */
+								for(j=0;j<wlen;j++){
+									for (nw=0;nw<neigborTopicWords.length;nw++){
+				/* Step 5: if each word of the discriminative topic is found also in a neigbor's discriminative topic words then we add the times the word occured there */
+										if (mywords[j].item == neigborTopicWords[nw].item){
+											// uncomment to see how ti works
+											// console.log("mywords["+mywords[j].item+"] found in position: "+j+" with counts = "+mywords[j].counts);
+											// console.log("+ neigborTopicWords["+neigborTopicWords[nw].item+"] found in position: "+nw+" with counts = "+neigborTopicWords[nw].counts);
+											wordsMapCounts[mywords[j].item] += parseInt(neigborTopicWords[nw].counts);
+											timesOfWordApperaranceInGroup++;
+										}
+									}
+								}
+							}
+						}
+					}
+			/* Step 6: After finishing the parsing of all the other nodes in group we find the word that appeared the most times in all groups' nodes' discriminative topics */
+					for(j=0;j<wlen;j++){
+						if (discriminativeWordCounts[nodes[k].index] < timesOfWordApperaranceInGroup*wordsMapCounts[mywords[j].item]){
+							discriminativeWordCounts[nodes[k].index] = timesOfWordApperaranceInGroup*wordsMapCounts[mywords[j].item];
+							discriminativeWord[nodes[k].index] = mywords[j].item;
+						}
+					}
+
+				/* for the d3 printing on the svg if there exists a label for this node and if this label is placed elsewhere*/
+					labeled[nodes[k].index] = 1;
+					labelIsOnGraph[discriminativeWord[nodes[k].index]] = false;
+
+				/* use sorting to avoid item multiply printed in d3 graph */
+					svgSortedTopicWords.push({key:nodes[k].index, item:discriminativeWord[nodes[k].index], value:discriminativeWordCounts[nodes[k].index]});
+					topicWords[nodes[k].index] = discriminativeWord[nodes[k].index];
+					// console.log("IN k="+k+" FINAL discriminativeWord="+discriminativeWord[nodes[k].index]+" with counts = "+discriminativeWordCounts[nodes[k].index]);
+				}
+			}
+
+			// console.log("Topics' words")
+			// for (i=0 ; i<svgSortedTopicWords.length ; i++)
+				// console.log("key="+svgSortedTopicWords[i].key+" item="+svgSortedTopicWords[i].item+" value="+svgSortedTopicWords[i].value);
+
+			/* sort by value the map of most discrimitive topic word per multi connected nodes */
+			svgSortedTopicWords.sort(function (a, b) {
+				return a.value - b.value;
+			});
+
+			/* reverse the map in order to be in a descending sorting */
+			svgSortedTopicWords.reverse();	// done in another way... now it is not needed 
+
+			// console.log("Sorted Topics' words")
+			//for (i=0 ; i<svgSortedTopicWords.length ; i++)
+				// console.log("key="+svgSortedTopicWords[i].key+" item="+svgSortedTopicWords[i].item+" value="+svgSortedTopicWords[i].value);
+
+				console.log("3");
+
+		}
+
+		function initialTick(e) {
+			// do not render initialization frames because they are slow and distracting 
+
+			if (e.alpha < 0.01) {
+
+				includeIcons();
+				$(document).trigger("graphDone");	// must be executed after graph's loading 
+				vis.select(".loading").remove();
+				nodeCircles
+					.transition()
+					.duration(1000)
+					.attr("cx", function(d) {
+						return translation[0] + scaleFactor*d.x;
+					})
+					.attr("cy", function(d) {
+						return translation[1] + scaleFactor*d.y;
+					})
+				linkLines
+					.transition()
+					.duration(1000)
+					.attr("x1", function(d) {
+						return translation[0] + scaleFactor*d.source.x;
+					})
+					.attr("y1", function(d) {
+						return translation[1] + scaleFactor*d.source.y;
+					})
+					.attr("x2", function(d) {
+						return translation[0] + scaleFactor*d.target.x;
+					})
+					.attr("y2", function(d) {
+						return translation[1] + scaleFactor*d.target.y;
+					})
+				console.log("1");
+
+				findTopicLabels();
+// gia to convex hull
+//  vis.selectAll("path")
+//      .data([d3.geom.hull(nodes.map(function(d) { return [ d.x, d.y ]; }))])
+//      .attr("d", function(d) { return "M" + d.join("L") + "Z"; });
+				console.log("4");
+
+				/* after creating the labels we put them in nodeLabels variable */
+
+				fontsize = (14*4/(1.3*previous_scale) >= 13) ? 14*4/(1.3*previous_scale) : 13;	// reduce label font by 5/(3*previous_scale)
+//				fontsize = (14*5/(1.5*previous_scale) >= 13) ? 14*5/(1.5*previous_scale) : 13;	// reduce label font by 5/(3*previous_scale)
+			// fontcolor has a hexadecimal code of grey, reason of 16 is to be a two digit number
+				fontcolor = (150-(previous_scale*50) > 16) ? Math.round(150-(previous_scale*50)).toString(16) : "00";
+				// use below for scales of grey in labeling
+				// .attr("fill","#"+fontcolor+fontcolor+fontcolor)
+
+				nodeLabels
+					.attr("class", function(d) {
+					return "labels " + d.area
+				})
+				.attr("x", function(d) {
+					return (d.x+7);
+				})
+				.attr("y", function(d) {
+					return (d.y-7);
+				})
+//				.text(function(d){return d.index;});
+				.text(function(d) { 
+					if (labeled[d.index]){
+						label[d.index] = "";
+						// console.log("topicWords printed on graph:");
+						for (i=0 ; i<svgSortedTopicWords.length ; i++){
+							if (svgSortedTopicWords[i].key == d.index){
+								if (!labelIsOnGraph[svgSortedTopicWords[i].item]){
+									label[d.index] = svgSortedTopicWords[i].item;
+									// console.log("svgSortedTopicWords["+i+"].key="+svgSortedTopicWords[i].key+" label="+label);
+									labelIsOnGraph[label[d.index]] = true;
+								}
+								break;
+							}
+						}
+						// console.log("scaleFactor"+previous_scale)
+
+						if((links[d.index].value>0.94/(1+(0.03*previous_scale))) && (nodeConnections[d.index] > 4*maxNodeConnections/(6+previous_scale))){
+//						if(nodeConnections[d.index] > 7*maxNodeConnections/(7+previous_scale)){
+//							if(include(nodesInGroup[links[j].source],j) != -1)
+								return label[d.index];
+//							else{
+//								return "";	
+//							}
+						}
+						else{
+							return "";	
+						}
+					}
+				});
+				vis.selectAll(".labels")
+					.style("font-size",fontsize+"px");					
+
+
+				/* move circle elements above all others within the same grouping */ 
+				vis.selectAll(".circle").moveToFront();
+
+
+				force.stop()
+			}
+			else {
+				if (e.alpha < 0.015) {
+					var q = d3.geom.quadtree(nodes),				//ftiaxnei tous kombous se sxima quadtree 
+						i = 0,
+						n = nodes.length;
+					while (++i < n) {
+						q.visit(collide(nodes[i]));
+					}
+				}
+				loadingText.text(function() {
+					return "Loading: " + Math.round((1 - (e.alpha * 10 - 0.1)) * 100) + "%"
+				});
+			}
+		}
+
+
+/**** DB CONNECTION FUNCTIONS ****/
+		function ajaxCall(experiment,callType){
+			$.ajax({
+				type: "GET",
+				async: true,
+				//url: "http://astero.di.uoa.gr/graphstemp/dbfront.php",
+                                url: "http://localhost:8080/OpenAireWeb/webresources/entities.grantssimilarity/0.8/150T_0IT_950IIT_50I_100B_M_4_Grants_None",
+/*nmp commented below to open a smaller db in first loading of page*/
+				// data:"s=0.6&ex="+experiment,
+				//data:"s=0.6&ex="+experiment+"&type="+callType,
+				// data:"ex="+experiment+"&type="+callType,
+				success: function(resp){
+					// we have the response
+					myresponse = JSON.parse(resp);
+
+					if(callType=="Graph"){
+						renderpage(myresponse);
+					}
+					else if(callType=="Grants"){
+						grants = myresponse;
+					}
+					else if(callType=="Topics"){
+						topics = myresponse;
+						/* trigger send the message tha topics loading in done to the function binding that for creating the labels in the graph */ 
+						// $(document).ajaxComplete(function () {
+//remove below - set to see how it works							
+//						console.log(0);
+
+						$(document).bind("graphDone",function() {	// if "bind" the code is executed every time the "topicsDone" is triggered. In this code it is triggered when the ajaxCall has loaded all the Topics 
+//remove below - set to see how it works							
+//				console.log(2);
+							$(document).trigger("topicsDone");	// must be executed after graph's loading 
+						});	
+						// });
+
+					}
+					else if(callType=="Experiments"){
+						experiments = myresponse;
+					}
+					else {
+						alert('Error in ajaxCall ');
+					}
+				},
+				error: function(e){
+					alert('Error: ' + JSON.stringify(e));
+				}
+			});
+		}
+
+
+/**** RENDERING FUNCTIONS ****/
+		/* renderpage called from ajax */
+		function renderpage(response){
+			// console.log(response);		// prints the returned node results 
+			legend_data = [];
+			max_proj = 0;
+			var type_hash = [];
+			var node_hash = [];
+			var nodeCnt = 0;
+			//links = d3.range(1000).map(Object);
+			for (var j = 0; j < response.length; j++) {
+				if (typeof node_hash[response[j].EntityId1]==="undefined"){
+					var nodetype;
+					var nodeindex = type_hash.indexOf(response[j].F1)
+					if(nodeindex != -1){
+						nodetype = nodeindex;
+						legend_data[nodeindex].pr++;
+						//legend_data[nodeindex].pubs += response[j].P1;
+					}
+					else{
+						type_hash.push(response[j].F1);
+						nodetype = type_hash.length;
+						legend_data[type_hash.length-1] = new Object();
+						legend_data[type_hash.length-1].name = response[j].F1;
+						legend_data[type_hash.length-1].pr=1;
+						//legend_data[type_hash.length-1].pubs = response[j].P1;
+
+						var clr = get_random_colors();
+
+						style.innerHTML += "."+response[j].F1+"{stroke:"+clr[1]+"; fill:"+clr[0]+"; background-color:"+clr[0]+"; color:"+clr[0]+";} ";
+					}
+
+					nodes[nodeCnt] = {index: nodeCnt, id: response[j].EntityId1, name: response[j].Acr1, slug: "http://www.md-paedigree.eu/", type: nodetype, value: response[j].P1, area: response[j].F1
+					}; //value # of publications
+					node_hash[response[j].EntityId1] = nodeCnt;
+					nodeCnt++;
+				}
+
+				if ( typeof node_hash[response[j].EntityId2]==="undefined"){
+					var nodetype;
+					var nodeindex = type_hash.indexOf(response[j].F2)
+					if(nodeindex != -1){
+						nodetype = nodeindex;
+						legend_data[nodeindex].pr++;
+						//legend_data[nodeindex].pubs += response[j].P2;
+					}
+					else{
+						type_hash.push(response[j].F2);
+						nodetype = type_hash.length;
+						legend_data[type_hash.length-1] = new Object();
+						legend_data[type_hash.length-1].name = response[j].F2;
+						legend_data[type_hash.length-1].pr=1;
+						//legend_data[type_hash.length-1].pubs = response[j].P2;
+
+						var clr = get_random_colors();
+
+						style.innerHTML += "."+response[j].F2+"{stroke:"+clr[1]+"; fill:"+clr[0]+"; background-color:"+clr[0]+"; color:"+clr[0]+";} ";
+					}
+					nodes[nodeCnt] = {index: nodeCnt, id: response[j].EntityId2, name: response[j].Acr2, slug: "http://www.humanbrainproject.eu/", type: nodetype, value: response[j].P2, area: response[j].F2
+					}; //value # of publications
+					node_hash[response[j].EntityId2] = nodeCnt;
+					nodeCnt++;
+				}
+
+				links[j] = {source: node_hash[response[j].EntityId1], target: node_hash[response[j].EntityId2], value: response[j].Similarity};
+			}
+
+//NMP gia na exoume links kai apo to target sto source
+			var j_new;
+			for (var j = response.length; j < 2*response.length; j++) {
+				j_new = j-response.length;
+				links[j] = {source: node_hash[response[j_new].EntityId2], target: node_hash[response[j_new].EntityId1], value: response[j_new].Similarity};
+			}
+
+console.log("linkslength="+links.length)
+
+			var median = 0;
+			for (j = 0; j < links.length ; j++) {
+				median = (parseFloat(links[j].value) + parseFloat(j*median))/parseFloat(j+1);		
+			}
+			console.log("median link value="+median)
+
+
+
+
+			for (var j = 0; j < response.length ; j++) {
+				// console.log("links["+j+"]: source="+links[j].source+", target="+links[j].target+", value="+links[j].value);
+			/* maybe we dont need the source to be counted */
+			//console.log("value"+links[j].value)
+				if(links[j].value>0.77){
+					if(nodeConnections[links[j].source] == null)
+						nodeConnections[links[j].source] = 0;
+					if(nodeConnections[links[j].target] == null){
+						nodeConnections[links[j].target] = 0;
+					}
+
+				/*  */	
+					if(nodesInGroup[links[j].source] == null)
+						nodesInGroup[links[j].source] = [];
+
+					/* if j is not already in the array */
+					if(include(nodesInGroup[links[j].source],j) != -1)
+						nodesInGroup[links[j].source].push(j);
+
+					if(nodesInGroup[links[j].target] == null)
+						nodesInGroup[links[j].target] = [];
+
+					/* if j is not already in the array */
+					if(include(nodesInGroup[links[j].target],j) != -1)
+						nodesInGroup[links[j].target].push(j);
+
+
+		//			var temp = nodesInGroup[links[j].target];
+		//			temp++;
+		//			console.log("nodesInGroup[links["+(j+1)+"].target] = "+temp)
+					nodeConnections[links[j].source] = nodeConnections[links[j].source] + 1; 	
+					nodeConnections[links[j].target] = nodeConnections[links[j].target] + 1; 
+				}
+			}
+			console.log("response.length="+response.length)
+			// console.log("nodesInGroup="+nodesInGroup)
+
+
+//NMP + 
+			for (var j = 0; j < nodeConnections.length ; j++) {
+				if(maxNodeConnections < nodeConnections[j])
+					maxNodeConnections = nodeConnections[j];
+				// console.log("maxNodeConnections = "+ maxNodeConnections);
+			}
+			console.log("maxNodeConnections = "+ maxNodeConnections);
+
+
+			for(var i=0;i<legend_data.length;i++){
+				if(legend_data[i].pr > max_proj)
+					max_proj = legend_data[i].pr;
+			}
+
+
+
+
+			legend_data.sort(compare);
+			nodes.sort(compareGrants);
+
+			update();
+
+			var rows;
+			rows = legend.selectAll("tr")
+				.data(legend_data)
+				.enter()
+				.append("tr")
+				.style("height","10px")
+				.attr("class","legend_row")
+				.on("click",function(){
+					if($(this).hasClass("active_row")){
+						$(this).removeClass("active_row");
+						$(this).addClass("inactive");
+						if($(".active_row").length==0){
+							$(".inactive").each(function(){
+								$(this).removeClass("inactive");
+							});
+						}
+					}
+					else{
+						$(this).addClass("active_row");
+						$(this).removeClass("inactive");
+						if($(".active_row").length==1){
+							var cur = this;
+							$(".legend_row").each(function(){
+								if(this != cur)
+									$(this).addClass("inactive");
+							});
+						}
+					}
+
+					//find all types to show
+					var types = new Array();
+					var collection = null;
+					if($(".active_row").length == 0){
+						collection = $(".legend_row");
+					}
+					else
+						collection = $(".active_row");
+
+					collection.each(function(){
+						types.push($($(this).find("td").get(0)).find("div").html());
+					});
+
+					//showtypes
+					showtype(fade_out, types);
+				});
+				//.style("width","140px");
+
+			rows.append("td")
+				.append("div")
+				.style("width","60px")
+				.style("height","100%")
+				.text(function(d,i){return d.name;});
+
+			rows.append("td")
+				.append("div")
+				.style("width","80px")
+				.style("height","100%")
+				.attr("class","bar")
+				.append("div")
+				.style("height","10px")
+				.attr("class",function(d) {return d.name;})
+				.style("width",function(d){return Math.ceil(80*d.pr/max_proj);});
+				//.text(function(d,i){return d.name;});
+
+			rows.append("td")
+				.append("div")
+				.style("width","40px")
+				.style("height","100%")
+				.text(function(d){return numberWithCommas(d.pr);});
+
+			/* rows.append("td")
+				.append("div")
+				.style("width","40px")
+				.style("height","100%")
+				.text(function(d){return numberWithCommas(d.pubs);});*/
+
+			loadingText = vis.append("svg:text")
+							.style("font-size",w/20)
+							.attr("class", "loading")
+							.attr("x", (w / 2) - (w/7)) // pou einai to miso tou loading
+							.attr("y", h / 2)
+							.text("Loading");
+
+
+			explist.selectAll("option")
+				.data(experiments)
+				.enter()
+				.append("option")
+				.attr("value",function(d){return d;})
+// below code makes first experiment unselectable					
+				.attr("selected",function(d){if(d == "100T_0IT_600IIT_30I_100B_M_3_Grants_None") return "selected";})
+				.text(function(d){return d});
+
+			explist.on("change", function(){
+				var myval = $(this).find("option:selected").val();
+				$("#legend").empty();
+				$("svg").empty();
+/*nmp na dw poia xreiazontai edw*/					
+
+////////////////////////////////////////////////// //NMP epanaxrikopoiiseis  
+	$("svg:text").empty();
+	nodeConnections = [];//NMP +
+	maxNodeConnections = 0;//NMP +
+	labeled = [];
+	topicWords = [];		
+	topics = [];
+				ajaxCall(myval,"Graph");
+				ajaxCall(myval,"Topics");
+				ajaxCall(myval,"Experiments");
+				ajaxCall(myval,"Grants");
+			});
+
+			var temp = new Object();
+
+			temp.name = "all";
+
+			grantslist.selectAll("option")
+				.data([temp].concat(nodes))
+				.enter()
+				.append("option")
+				.attr("value",function(d){return d.name;})
+				.text(function(d){return d.name});
+
+			grantslist.on("change", function(){
+				var myval = $(this).find("option:selected").val();
+				if(myval == "all"){
+					/*var types = new Array();
+					$(".legend_box:checked").each(function(){
+						types.push($(this).attr("value"));
+					});
+					showtype(fade_out, types);
+								mytext.selectAll(".nodetext").remove();*/
+					reset();
+				}
+				else{
+					//get the node that has the name that was selected
+					for(var i=0;i<nodes.length;i++){
+						if(nodes[i].name == myval)
+							test(nodes[i],0.1);
+					}
+				}
+			});
+		}
+
+
+	/* update ? */
+		function update() {
+			linkedByIndex = {}
+			links.forEach(function(d) {
+				linkedByIndex[d.source + "," + d.target] = 1;		
+				linkedByIndex[d.target + "," + d.source] = 1;		
+//                	console.log("linkedByIndex["+d.source+","+d.target+"] = "linkedByIndex[d.source + "," + d.target]);
+			});
+			//maybe not needed
+			links.forEach(function(d) {
+				if (d.value > 0.9){
+					if(include(groupedNodes,d.target) != -1){
+						groupedNodes.push(d.target)
+					}
+					if(include(groupedNodes,d.source) != -1){
+						groupedNodes.push(d.source)
+					}
+				}
+			});
+
+console.log("groupedNodes= "+groupedNodes)
+
+
+			force
+				.nodes(nodes
+							.map(function(d) {
+								return jQuery.extend(d, {
+									radius: Math.log(10*d.value), // eg related to # of publications
+									x: Math.random() * w,
+									y: Math.random() * h
+								})
+							})
+						)
+				.links(links)
+				.start();
+
+			linkLines = vis.selectAll(".link")
+					.data(links)
+
+			linkLines.enter().append("svg:line")					//edw ftiaxnei tis akmes 
+				.attr("class", function(d) {
+					return "link " + d.target.area
+				})				
+				.attr("x1", function(d) {
+					return d.source.x;
+				})
+				.attr("y1", function(d) {
+					return d.source.y;
+				})
+				.attr("x2", function(d) {
+					return d.target.x;
+				})
+				.attr("y2", function(d) {
+					return d.target.y;
+				});
+
+
+			linkLines.exit().remove();
+
+			nodeCircles = vis.selectAll(".circle")				//i html klasi gia tous kombous 
+					.data(nodes)
+
+//NMP + prosthesa to .text 
+			nodeCircles.enter()									// edw ftiaxnei tous kombous sss
+				.append("svg:circle")
+				.attr("class", function(d) {
+					return "circle " + d.area
+				})
+				.attr("r", function(d) {
+					return d.radius
+				})
+				.on("mouseover", fade(fade_out, true))
+				.on("mouseout", normalizeNodesAndRemoveLabels())
+				.attr("cx", function(d) {
+					return d.x
+				})
+				.attr("cy", function(d) {
+					return d.y
+				})
+				.on("click", function(d,i){
+					var myfade = fade(fade_out, true);
+					if(focused == d.name){
+						focused = '';
+						nodeCircles.on("mouseover", fade(fade_out, true))
+							.on("mouseout", normalizeNodesAndRemoveLabels());
+						reset();
+					}
+					else{
+						focused = d.name;
+						//myfade(d,i);
+						test(d,fade_out);
+						nodeCircles.on("mouseout", function(){return false;})
+							.on("mouseover", function(){return false;});
+					}
+				});
+				// added below for the draggin movement
+				// .call(drag);
+
+			nodeCircles.exit().remove();
+
+			nodeLabels = vis.selectAll(".labels")				//i html klasi gia tous kombous 
+				.data(nodes);
+			nodeLabels.enter()									// edw ftiaxnei tous kombous sss
+				.append("svg:text");
+
+			nodeLabels.exit().remove();
+
+
+		}
+	});
+	//]]>
+
+	</script>
+
+	</head>
+	<body>
+		<div class="container-fluid">
+			<div class="row-fluid">
+				<div class="span3">
+					<h5>Grant:&nbsp;</h5><select id="grants"></select>
+				</div>
+				<div class="span3">
+					<h5>Experiment:&nbsp;</h5><select id="experiments"></select>
+				</div>
+			</div>
+			<div class="row-fluid">
+				<div class="span2">
+					<div id="mytext" style="max-width:20%;width:20%;vertical-align:top;z-index:1000;position:absolute;word-break:break-all"></div>
+				</div>
+				<div class="span7">
+					<svg id="graph" style="width:99%;margin-left:auto;margin:right:auto"></svg>
+				</div>
+				<div class="span3" style="overflow:auto;">
+					<table class="table table-condensed">
+						<thead>
+							<tr>
+								<th>subdivision</th>
+								<th># of grants</th>
+								<th>count</th>
+							</tr>
+						</thead>
+						<tbody id="legend"></tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</body>
+<!--	<script type='text/javascript'>
+		$(".topic").on("click",function(){
+			//alert("clicked keyword "+$(this).html());
+			alert("clicked");
+		});
+	</script>-->
+</html>

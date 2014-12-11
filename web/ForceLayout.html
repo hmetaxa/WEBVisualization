@@ -1,0 +1,743 @@
+
+<html>
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+        <script src="http://d3js.org/d3.v3.min.js"></script>
+        <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.8/jquery.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="style2.css" />       
+	<script type='text/javascript'>//<![CDATA[
+            window.focus();
+            $(function() {
+		var fade_out = 0.1;
+		var strong = 1;
+		var normal = 0.8;
+	
+                var w = 1000,
+                        h = 700,
+                        radius = d3.scale.linear().domain([0, 978000]).range(["2", "30"]),
+                        loading,
+                        json,
+                        link,
+                        linkedByIndex = {},
+                        node,
+                        labels = [],
+                        links = [],
+                        nodes = [],
+                        selectedLabelIndex = null;
+
+                var vis = d3.select("#graph")
+                        .style("width", w)
+                        .style("height", h)
+			.style("float","left");
+
+		var legend = d3.select("#legend");
+		var mytext = d3.select("#mytext");
+		var grantslist = d3.select("#grants");
+		var explist = d3.select("#experiments");
+
+                var focused = false;
+
+		var grants;
+		var topics;
+		var experiments;
+		var legend_data = [];
+		var max_proj = 0;
+
+		function showtype(opacity, types){
+			node.style("fill-opacity", function(o) {
+				if(types.indexOf(o.area) === -1)
+					return opacity;
+				else
+					return normal;
+			});
+
+			link.style("stroke-opacity", function(o) {
+                            return types.indexOf(o.source.area) != -1 || types.indexOf(o.target.area) != -1 ? normal/2 : opacity;
+                        });
+		}
+
+		function fade(opacity, showText) {
+                    return function(d, i) {
+			if($(this).css("fill-opacity") < normal)
+				return false;                        
+			labels = [];
+                        var selectedLabelData = null;
+                        node.style("fill-opacity", function(o) {
+                            var isNodeConnectedBool = isNodeConnected(d, o);
+                            var thisOpacity = isNodeConnectedBool ? normal : opacity;
+                            if (!isNodeConnectedBool) {
+				this.setAttribute('style', "stroke-opacity:" + opacity + ";fill-opacity:" + opacity + ";");
+                            } else {
+                                if (o == d)
+                                    selectedLabelData = o;
+				else
+				    labels.push(o);
+                            }
+			    if(o == d)
+				return strong;
+                            return thisOpacity;
+                        });
+
+                	link.style("stroke-opacity", function(o) {
+                	    return o.source === d || o.target === d ? normal : opacity;
+                	});
+
+                        labels.sort(function(a, b) {
+                            return b.value - a.value
+                        })
+
+                        selectedLabelIndex = 0;//labels.indexOf(selectedLabelData);
+			
+			
+                        mytext.selectAll("p.nodetext").data([selectedLabelData].concat(labels)).enter().append("p")
+                                .attr("class", function(o) {
+			    if( d.index == o.index )
+				return "nodetext " + o.area + " active";
+                            return "nodetext " + o.area; 
+                        })
+                                .html(function(o) {
+			    var str = 'Project: ' + o.name + '</br> # Publications:' + o.value + "</br> Subdivision: " + o.area; 
+			    
+                            if(d == o){
+				//str += "<img src='gnome_window_close.png' alt='Close' class='close' onclick='alert(\"closed\")' style='width:20px;height:20px;position:absolute;top:10;right:10;'/>";
+				str += "<span style='font-size:small;z-index:500;'><br/></br> TOPICS:<br/>";
+				var mytopics = grants[o.id];		
+				var len = mytopics.length;
+				for(var i=0;i<len;i++){
+					var mywords = topics[mytopics[i].topic];
+					var wlen = mywords.length;
+					for(var j=0;j<wlen;j++){
+						str += mywords[j].item;
+						if(j<wlen-1)
+							str += ",&nbsp";					
+					}
+					str += "<br/><br/>";
+				}
+				str += "<br/></br> SIMILAR TO:</span>";
+			    }
+			    return str;
+                        });
+                    }
+                }
+
+		function reset(){
+			var types = new Array();
+				$(".legend_box:checked").each(function(){
+					types.push($(this).attr("value"));
+				});
+				showtype(fade_out, types);
+                        mytext.selectAll(".nodetext").remove();
+
+		}
+
+                function normalizeNodesAndRemoveLabels() {
+                    return function(d, i) {
+                       	var types = new Array();
+				$(".legend_box:checked").each(function(){
+					types.push($(this).attr("value"));
+				});
+				showtype(fade_out, types);
+                        mytext.selectAll(".nodetext").remove();
+                    }
+                }
+
+                function isNodeConnected(a, b) {
+                    return linkedByIndex[a.index + "," + b.index] || linkedByIndex[b.index + "," + a.index] || a.index == b.index;
+                }
+
+                function openLink() {
+                    return function(d) {
+                        var url = d.slug;
+                        window.open(url)
+                    }
+                }
+
+        //function numberWithCommas(x) {
+        //    return x.toString().replace(/\B(?=(?:\d{3})+(?!\d))/g, ",");
+        //}
+
+                var initialized = false;
+                function tick(e) {
+                    //do not render initialization frames because they are slow and distracting
+                    if (e.alpha < 0.01) {
+                        vis.select(".loading").remove();
+
+                        node
+                                .transition()
+                                .duration(1000)
+                                .attr("cx", function(d) {
+                            return d.x;
+                        })
+                                .attr("cy", function(d) {
+                            return d.y;
+                        })
+
+                        link
+                                .transition()
+                                .duration(1000)
+                                .attr("x1", function(d) {
+                            return d.source.x;
+                        })
+                                .attr("y1", function(d) {
+                            return d.source.y;
+                        })
+                                .attr("x2", function(d) {
+                            return d.target.x;
+                        })
+                                .attr("y2", function(d) {
+                            return d.target.y;
+                        })
+
+                        force.stop()
+                    } else {
+                        if (e.alpha < 0.015) {
+                            var q = d3.geom.quadtree(nodes),
+                                    i = 0,
+                                    n = nodes.length;
+                            while (++i < n) {
+                                q.visit(collide(nodes[i]));
+                            }
+                        }
+                        loadingText.text(function() {
+                            return "Loading: " + Math.round((1 - (e.alpha * 10 - 0.1)) * 100) + "%"
+                        });
+                    }
+                }
+
+                var force = self.force = d3.layout.force()
+                       // .linkDistance(0)
+                .linkDistance(function(d) {
+                        return Math.round(10*d.value);
+                    }) 
+                .linkStrength(function(d) {
+                        return d.value;
+                    }) 
+                        .charge(-350)
+                        .gravity(2)
+
+                        .size([w, h])
+                        .on("tick", tick);
+           
+//		var myresponse;		 
+//		$.ajax({
+//		   type: "GET",
+//		   async: true,
+//		   url: "http://sultana.di.uoa.gr/graphstemp/dbfront.php",
+//		   data:"s=0.6&ex=150T_350I_ALL_ALL",
+//		   success: function(resp){
+//		         // we have the response
+//		        myresponse = JSON.parse(resp);
+//			grants = myresponse.grants;
+//			topics = myresponse.topics;	
+//			experiments = myresponse.expers;   
+//		   	renderpage(myresponse.resp);
+//
+//		   },
+//		   error: function(e){
+//		         alert('Error: ' + JSON.stringify(e));
+//		   }
+//		});
+
+ d3.json("http://localhost:8080/OpenAireWeb/webresources/entities.grantssimilarity/0.8/150T_350I_ALL_ALL",
+                        function(response) {
+                            //function myfunc(response) {
+                            console.log(response);
+
+                            var type_hash = [];
+                            var node_hash = [];
+                            var nodeCnt = 0;
+                            //links = d3.range(1000).map(Object);
+
+                            for (var j = 0; j < response.length; j++) {
+                                //if (nodes.indexOf(response[j].GrantId1) === -1)
+
+                                if (typeof node_hash[response[j].grantId1] === "undefined")
+                                {
+                                    var nodetype;
+                                    var nodeindex = type_hash.indexOf(response[j].f1)
+                                    if (nodeindex != -1)
+                                        nodetype = nodeindex;
+                                    else {
+                                        type_hash.push(response[j].f1);
+                                        nodetype = type_hash.length;
+                                    }
+                                    nodes[nodeCnt] = {index: nodeCnt, id: response[j].grantId1, name: response[j].acr1, slug: "http://www.md-paedigree.eu/", type: nodetype, value: response[j].p1, area: response[j].f1}; //value # of publications
+                                    node_hash[response[j].grantId1] = nodeCnt;
+                                    nodeCnt++;
+                                }
+
+                                //if (nodes.indexOf(response[j].GrantId2) === -1)
+                                if (typeof node_hash[response[j].grantId2] === "undefined")
+                                {
+                                    var nodetype;
+                                    var nodeindex = type_hash.indexOf(response[j].f2)
+                                    if (nodeindex != -1)
+                                        nodetype = nodeindex;
+                                    else {
+                                        type_hash.push(response[j].f2);
+                                        nodetype = type_hash.length;
+                                    }
+                                    nodes[nodeCnt] = {index: nodeCnt, id: response[j].grantId2, name: response[j].acr2, slug: "http://www.humanbrainproject.eu/", type: nodetype, value: response[j].p2, area: response[j].f2}; //value # of publications
+                                    node_hash[response[j].grantId2] = nodeCnt;
+                                    nodeCnt++;
+
+                                }
+
+                                links[j] = {source: node_hash[response[j].grantId1], target: node_hash[response[j].grantId2], value: response[j].similarity};
+                            }
+                            update();
+
+                            loadingText = vis.append("svg:text")
+                                    .attr("class", "loading")
+                                    .attr("x", (w / 2) - 200)
+                                    .attr("y", h / 2)
+                                    .text("Loading");
+                        }
+                )
+
+		function test(mynode, opacity){  
+			var types = new Array();
+				$(".legend_box:checked").each(function(){
+					types.push($(this).attr("value"));
+				});
+				showtype(fade_out, types);
+                        mytext.selectAll(".nodetext").remove();
+                 
+			labels = [];
+                        var selectedLabelData = null;
+                        node.style("fill-opacity", function(o) {
+                            var isNodeConnectedBool = isNodeConnected(mynode, o);
+                            var thisOpacity = isNodeConnectedBool ? normal : opacity;
+                            if (!isNodeConnectedBool) {
+				this.setAttribute('style', "stroke-opacity:" + opacity + ";fill-opacity:" + opacity + ";");
+                            } else {
+                                if (o == mynode)
+                                    selectedLabelData = o;
+				else
+				    labels.push(o);
+                            }
+			    if(o == mynode)
+				return strong;
+                            return thisOpacity;
+                        });
+
+                	link.style("stroke-opacity", function(o) {
+                	    return o.source === mynode || o.target === mynode ? normal : opacity;
+                	});
+
+                        labels.sort(function(a, b) {
+                            return b.value - a.value
+                        })
+
+                        selectedLabelIndex = 0;
+			
+			
+                        mytext.selectAll("p.nodetext").data([selectedLabelData].concat(labels)).enter().append("p")
+                                .attr("class", function(o) {
+			    if( mynode.index == o.index )
+				return "nodetext " + o.area + " active";
+                            return "nodetext " + o.area; 
+                        })
+                                .html(function(o) {
+			    var str = 'Project: ' + o.name + '</br> # Publications:' + o.value + "</br> Subdivision: " + o.area; 
+			    
+                            if(mynode == o){
+				//str += "<img src='gnome_window_close.png' alt='Close' class='close' onclick='alert(\"closed\")' style='width:20px;height:20px;position:absolute;top:10;right:10;'/>";
+				str += "<span style='font-size:small;z-index:500;'><br/></br> TOPICS:<br/>";
+				var mytopics = grants[o.id];		
+				var len = mytopics.length;
+				for(var i=0;i<len;i++){
+					var mywords = topics[mytopics[i].topic];
+					var wlen = mywords.length;
+					for(var j=0;j<wlen;j++){
+						str += mywords[j].item;
+						if(j<wlen-1)
+							str += ",&nbsp";					
+					}
+					str += "<br/><br/>";
+				}
+				str += "<br/></br> SIMILAR TO:</span>";
+			    }
+			    return str;
+                        });
+
+
+		}
+
+		
+		//d3.json("sultana.di.uoa.gr/graphs/dbfront.php", function(response) {
+		function renderpage(response){
+                    console.log(response);
+
+		    var type_hash = [];
+                    var node_hash = [];
+                    var nodeCnt = 0;
+                    //links = d3.range(1000).map(Object);
+
+                    for (var j = 0; j < response.length; j++) {
+                        
+                        if (typeof node_hash[response[j].GrantId1]==="undefined")
+                        {
+			    var nodetype;
+			    var nodeindex = type_hash.indexOf(response[j].f1)
+			    if(nodeindex != -1){
+				nodetype = nodeindex;
+			    	legend_data[nodeindex].pr++;
+			    	legend_data[nodeindex].pubs += response[j].P1;
+			    }
+			    else{
+				type_hash.push(response[j].f1);
+				nodetype = type_hash.length;
+				legend_data[type_hash.length-1] = new Object();
+				legend_data[type_hash.length-1].name = response[j].f1;
+			    	legend_data[type_hash.length-1].pr=1;
+			    	legend_data[type_hash.length-1].pubs = response[j].P1;
+			    } 
+                            nodes[nodeCnt] = {index: nodeCnt, id: response[j].GrantId1, name: response[j].acr1, slug: "http://www.md-paedigree.eu/", type: nodetype, value: response[j].P1, area: response[j].f1}; //value # of publications
+                            node_hash[response[j].GrantId1] = nodeCnt;
+                            nodeCnt++;
+                        }
+
+                        if ( typeof node_hash[response[j].GrantId2]==="undefined")
+                        {
+		  	    var nodetype;
+			    var nodeindex = type_hash.indexOf(response[j].f2)
+			    if(nodeindex != -1){
+				nodetype = nodeindex;
+			    	legend_data[nodeindex].pr++;
+			    	legend_data[nodeindex].pubs += response[j].P2;
+			    }
+			    else{
+				type_hash.push(response[j].f2);
+				nodetype = type_hash.length;
+				legend_data[type_hash.length-1] = new Object();
+				legend_data[type_hash.length-1].name = response[j].f2;
+			    	legend_data[type_hash.length-1].pr=1;
+			    	legend_data[type_hash.length-1].pubs = response[j].P2;
+			    }
+                            nodes[nodeCnt] = {index: nodeCnt, id: response[j].GrantId2, name: response[j].acr2, slug: "http://www.humanbrainproject.eu/", type: nodetype, value: response[j].P2, area: response[j].f2}; //value # of publications
+                            node_hash[response[j].GrantId2] = nodeCnt;
+                            nodeCnt++;
+
+                        }
+
+                        links[j] = {source: node_hash[response[j].GrantId1], target: node_hash[response[j].GrantId2], value: response[j].Similarity};
+                    }
+
+		    for(var i=0;i<legend_data.length;i++){
+			if(legend_data[i].pr > max_proj)
+				max_proj = legend_data[i].pr;
+		    }
+
+                    update();
+			
+		    var temp = new Object();
+		    temp.name = "All";
+		    temp.pr = 1;
+		    temp.pubs = 1;
+		    var rows = legend.selectAll("tr")
+			.data([temp].concat(legend_data))
+			.enter()
+			.append("tr")
+			.style("height","10px")
+			.attr("class","legend_row")
+			.on("click",function(){//alert("click");
+				if($(this).hasClass("active_row"))
+					$(this).removeClass("active_row");
+				else
+					$(this).addClass("active_row");
+
+			});
+			//.style("width","140px");
+
+		    rows.append("td")
+			.append("div")			
+			.style("width","20px")
+			.style("height","100%")
+			.append("input")
+			.attr("type","checkbox")
+			.attr("class","legend_box")
+			.attr("value",function(d) {return d.name;})
+			.attr("checked","checked")
+			.on("click",function(o){
+				//focused = true;
+				if($(this).attr("checked") == "checked" && $(this).attr("value") == "All")
+					$(".legend_box").attr("checked","checked");
+
+				if($(this).attr("checked") != "checked" && $(this).attr("value") == "All")
+					$(".legend_box").removeAttr("checked");
+				var types = new Array();
+				$(".legend_box:checked").each(function(){
+					types.push($(this).attr("value"));
+				});
+				showtype(fade_out, types);
+		    	});
+
+	            rows.append("td")
+			.append("div")	
+			.style("width","80px")
+			.style("height","100%")
+			.text(function(d,i){if(d.name=='All') return "Select all"; return d.name;});
+
+                    rows.append("td")
+			.append("div")	
+			.style("width","80px")
+			.style("height","100%")
+			.attr("class","bar")
+			.append("div")
+			.style("height","10px")	
+			.attr("class",function(d) {return d.name;})
+			.style("width",function(d){return Math.ceil(80*d.pr/max_proj);})			
+			//.text(function(d,i){if(d.name=='All') return "Select all"; return d.name;});
+			;
+
+
+		    rows.append("td")
+			.append("div")	
+			.style("width","40px")
+			.style("height","100%")
+			.text(function(d){return d.pr;});
+
+		    rows.append("td")
+			.append("div")	
+			.style("width","40px")
+			.style("height","100%")
+			.text(function(d){return d.pubs;});
+
+		    loadingText = vis.append("svg:text")
+                            .attr("class", "loading")
+                            .attr("x", (w / 2) - 200)
+                            .attr("y", h / 2)
+                            .text("Loading");
+
+
+		    explist.selectAll("option")
+			.data(experiments)
+			.enter()
+			.append("option")
+			.attr("value",function(d){return d;})
+			.attr("selected",function(d){if(d == "150T_350I_ALL_ALL") return "selected";})			
+			.text(function(d){return d});
+			
+			
+
+
+		    explist.on("change", function(){ 
+			var myval = $(this).find("option:selected").val();
+			alert(myval);	
+			//get the node that has the name that was selected					
+			/*for(var i=0;i<nodes.length;i++){
+				if(nodes[i].name == myval)
+					test(nodes[i],0.1);
+			}*/				
+			});
+
+			var temp = new Object();
+			temp.name = "all";
+		
+			grantslist.selectAll("option")
+			.data([temp].concat(nodes))
+			.enter()
+			.append("option")
+			.attr("value",function(d){return d.name;})
+			.text(function(d){return d.name});
+
+			grantslist.on("change", function(){ 
+				var myval = $(this).find("option:selected").val();
+				if(myval == "all"){
+					/*var types = new Array();
+					$(".legend_box:checked").each(function(){
+						types.push($(this).attr("value"));
+					});
+					showtype(fade_out, types);
+                        		mytext.selectAll(".nodetext").remove();*/
+					reset();
+				}				
+				else{
+					//get the node that has the name that was selected					
+					for(var i=0;i<nodes.length;i++){
+						if(nodes[i].name == myval)
+							test(nodes[i],0.1);
+					}
+				}				
+				});
+                }
+
+                function update() {
+                    linkedByIndex = {}
+                    links.forEach(function(d) {
+                        linkedByIndex[d.source + "," + d.target] = 1;
+                    });
+
+                    force.nodes(nodes
+                            .map(function(d) {
+                        return jQuery.extend(d, {
+                            radius: Math.log(10*d.value), // eg related to # of publications
+                            x: Math.random() * w,
+                            y: Math.random() * h
+                        })
+                    })
+                            )
+                            .links(links)
+                            .start();
+
+                    link = vis.selectAll(".link")
+                            .data(links)
+
+                    link.enter().append("svg:line")
+                            .attr("class", function(d) {
+                        return "link " + d.target.area
+                    })
+                            .attr("x1", function(d) {
+                        return d.source.x;
+                    })
+                            .attr("y1", function(d) {
+                        return d.source.y;
+                    })
+                            .attr("x2", function(d) {
+                        return d.target.x;
+                    })
+                            .attr("y2", function(d) {
+                        return d.target.y;
+                    })
+
+                    link.exit().remove();
+
+                    node = vis.selectAll(".circle")
+                            .data(nodes);
+
+                    node.enter()
+                            .append("svg:circle")
+                            .attr("class", function(d) {
+                        	return "circle " + d.area
+                    		})
+                            .attr("r", function(d) {
+                        	return d.radius
+                    		})
+                            .on("mouseover", fade(fade_out, true))
+                            .on("mouseout", normalizeNodesAndRemoveLabels())
+                            .attr("cx", function(d) {
+                        	return d.x
+                    		})
+                            .attr("cy", function(d) {
+                        	return d.y
+                    		})
+                            .on("click", function(d){ 
+				if(focused == d.name){
+					focused = '';
+					node.on("mouseover", fade(fade_out, true))
+                            		.on("mouseout", normalizeNodesAndRemoveLabels());
+					reset();
+				}
+				
+				else{				
+					focused = d.name; 
+					test(d,fade_out);
+					node.on("mouseout", function(){return false;})
+					.on("mouseover", function(){return false;});
+				}			    	
+				});
+
+                    node.exit().remove();
+                }
+
+                function collide(node) {
+                    var r = node.radius + 50,
+                            nx1 = node.x - r,
+                            nx2 = node.x + r,
+                            ny1 = node.y - r,
+                            ny2 = node.y + r;
+                    return function(quad, x1, y1, x2, y2) {
+                        if (quad.point && (quad.point !== node)) {
+                            var x = node.x - quad.point.x,
+                                    y = node.y - quad.point.y,
+                                    l = Math.sqrt(x * x + y * y),
+                                    r = node.radius + quad.point.radius;
+                            if (l < r) {
+                                l = (l - r) / l * .5;
+                                node.x -= x *= l;
+                                node.y -= y *= l;
+                                quad.point.x += x;
+                                quad.point.y += y;
+                            }
+                        }
+                        return x1 > nx2
+                                || x2 < nx1
+                                || y1 > ny2
+                                || y2 < ny1;
+                    };
+                }
+
+		
+                $(document).keydown(function(e) {
+                    if (e.keyCode == 13 && selectedLabelIndex !== null) {
+                        openLink()(labels[selectedLabelIndex]);
+                        return false;
+                    } else if (e.keyCode == 38 || e.keyCode == 40 && selectedLabelIndex !== null) {
+                        if (e.keyCode == 38)
+                            selectedLabelIndex--;
+                        if (e.keyCode == 40)
+                            selectedLabelIndex++;
+                        if (selectedLabelIndex < 0)
+                            selectedLabelIndex = labels.length - 1;
+                        if (selectedLabelIndex > labels.length - 1)
+                            selectedLabelIndex = 0;
+
+                        vis.selectAll("text.nodetext").style("font-weight", function(d, i) {
+                            return labels[selectedLabelIndex] == d ? "bold" : "normal"
+                        });
+
+                        vis.selectAll("circle.circle").style("stroke-width", function(d, i) {
+                            return labels[selectedLabelIndex] == d ? "5" : "1"
+                        });
+
+                        return false;
+                    } else if (e.keyCode == 39) {
+                        window['force']['charge'](window['force']['charge']() - 10)
+                        force.start();
+                    } else if (e.keyCode == 37) {
+                        window['force']['charge'](window['force']['charge']() + 10)
+                        force.start();
+                    }
+                });
+            });
+        //]]>
+
+        </script>
+
+    </head>
+<body>
+<table>
+<tr>
+	<td>
+		<p class="close">Grant:&nbsp</p><select id="grants"></select>
+	</td>
+	<td style="display:none">
+		<p>Experiment:&nbsp</p><select id="experiments"></select>
+	</td>
+</tr>
+
+<tr>
+	<td id="mytext" style="max-width:20%;width:20%;vertical-align:top;z-index:1000;position:absolute"></td>
+	<td style="width:70%;vertical-align:top;z-index:-100"><svg id="graph" style="width:99%;margin-left:auto;margin:right:auto"></svg></td>
+	<td style="vertical-align:top">
+		<table style="table-layout: fixed;float:left;">
+			<thead>
+			<tr>
+			<th></th>
+			<th>subdivistion</th>
+			<th># of grants</th>
+			<th>count</th>
+			<th># of pubs</th>
+			</tr>			
+			</thead>
+			<tbody  id="legend"></tbody>
+		</table>
+		
+	</td>
+</tr>
+</table>
+</body>
+
+</html>
+
