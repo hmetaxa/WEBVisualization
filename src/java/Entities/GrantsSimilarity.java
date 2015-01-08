@@ -71,7 +71,7 @@ public class GrantsSimilarity implements Serializable {
     @Basic(optional = false)
     @NotNull
     @Size(min = 1, max = 2000000000)
-    @Column(name = "f1")
+    @Column(name = "grantsCnt1")
     private String f1;
     @Basic(optional = false)
     @NotNull

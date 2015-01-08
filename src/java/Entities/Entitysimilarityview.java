@@ -8,6 +8,8 @@ package Entities;
 import java.io.Serializable;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.IdClass;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
 import javax.persistence.Table;
@@ -19,6 +21,7 @@ import javax.xml.bind.annotation.XmlRootElement;
  * @author hmetaxa
  */
 @Entity
+@IdClass(EntitiesSimilarityId.class)
 @Table(name = "entitysimilarityview")
 @XmlRootElement
 @NamedQueries({
@@ -43,15 +46,18 @@ import javax.xml.bind.annotation.XmlRootElement;
     @NamedQuery(name = "Entitysimilarityview.findByGr2Category0", query = "SELECT e FROM Entitysimilarityview e WHERE e.gr2Category0 = :gr2Category0")})
 public class Entitysimilarityview implements Serializable {
     private static final long serialVersionUID = 1L;
+    @Id
     @Size(max = 2000000000)
     @Column(name = "EntityId1")
     private String entityId1;
+    @Id
     @Size(max = 2000000000)
     @Column(name = "EntityId2")
     private String entityId2;
     @Size(max = 2000000000)
     @Column(name = "Similarity")
     private String similarity;
+    @Id
     @Size(max = 2000000000)
     @Column(name = "ExperimentId")
     private String experimentId;
@@ -245,4 +251,8 @@ public class Entitysimilarityview implements Serializable {
         this.gr2Category0 = gr2Category0;
     }
     
+    @Override
+    public String toString() {
+        return "Entities.EntitiesSimilarityView[ experimentId=" + experimentId + " entityId1=" + entityId1 + " entityId2=" + entityId2 + " ]";
+    }
 }
