@@ -25,8 +25,6 @@ public class ApplicationConfig extends Application {
     private Set<Class<?>> getRestResourceClasses() {
         Set<Class<?>> resources = new java.util.HashSet<Class<?>>();
         resources.add(service.EntitysimilarityviewFacadeREST.class);
-        resources.add(service.GrantFacadeREST.class);
-        resources.add(service.GrantsSimilarityFacadeREST.class);
         return resources;
     }
     

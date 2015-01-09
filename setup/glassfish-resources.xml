@@ -13,5 +13,5 @@
         <property name="URL" value="jdbc:sqlite:C:/Projects/Datasets/OpenAIRE/openairedb.db"/>
         <property name="driverClass" value="org.sqlite.JDBC"/>
     </jdbc-connection-pool>
-    <jdbc-resource enabled="true" jndi-name="jdbc/SQLite" object-type="user" pool-name="jdbc_sqlite_C__Projects_Datasets_OpenAIRE_openairedb_db_Pool"/>
+    <jdbc-resource enabled="true" jndi-name="jdbc_SQLite" object-type="user" pool-name="jdbc_sqlite_C__Projects_Datasets_OpenAIRE_openairedb_db_Pool"/>
 </resources>

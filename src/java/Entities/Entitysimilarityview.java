@@ -43,6 +43,7 @@ import javax.xml.bind.annotation.XmlRootElement;
     @NamedQuery(name = "Entitysimilarityview.findByGr1Category1", query = "SELECT e FROM Entitysimilarityview e WHERE e.gr1Category1 = :gr1Category1"),
     @NamedQuery(name = "Entitysimilarityview.findByGr2Category1", query = "SELECT e FROM Entitysimilarityview e WHERE e.gr2Category1 = :gr2Category1"),
     @NamedQuery(name = "Entitysimilarityview.findByGr1Category0", query = "SELECT e FROM Entitysimilarityview e WHERE e.gr1Category0 = :gr1Category0"),
+    @NamedQuery(name = "Entitysimilarityview.findSimilar", query = "SELECT e FROM Entitysimilarityview e WHERE e.experimentId = :experimentId and  e.similarity = :similarity"),
     @NamedQuery(name = "Entitysimilarityview.findByGr2Category0", query = "SELECT e FROM Entitysimilarityview e WHERE e.gr2Category0 = :gr2Category0")})
 public class Entitysimilarityview implements Serializable {
     private static final long serialVersionUID = 1L;

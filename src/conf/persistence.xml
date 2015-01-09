@@ -3,7 +3,7 @@
   <persistence-unit name="OpenAireWebPU" transaction-type="JTA">
     <jta-data-source>jdbc/SQLite</jta-data-source>
     <class>Entities.Entitysimilarityview</class>
-    <exclude-unlisted-classes>true</exclude-unlisted-classes>
+    <exclude-unlisted-classes>false</exclude-unlisted-classes>
     <properties/>
   </persistence-unit>
 </persistence>
